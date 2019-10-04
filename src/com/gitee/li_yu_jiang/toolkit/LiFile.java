@@ -1,15 +1,23 @@
-package com.company;
+package com.gitee.li_yu_jiang.toolkit;
+
+import com.gitee.li_yu_jiang.logger.LiLog;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.charset.Charset;
 
 /**
  * 文件操作工具类
+ *
+ * @author 大定府羡民
  */
-public class FileUtils {
+@SuppressWarnings({"UnusedReturnValue", "unused", "WeakerAccess"})
+public final class LiFile {
+
+    private LiFile() {
+    }
 
     public static boolean writeText(String filePath, String content) {
         boolean successful = true;
@@ -22,54 +30,58 @@ public class FileUtils {
                 parentFile.mkdirs();
             }
             fout = new FileOutputStream(file, false);
-            fout.write(content.getBytes("utf-8"));
-        } catch (FileNotFoundException e1) {
-            successful = false;
+            //noinspection CharsetObjectCanBeUsed
+            fout.write(content.getBytes(Charset.forName("UTF-8")));
         } catch (IOException e) {
-            e.printStackTrace();
+            LiLog.debug(e);
             successful = false;
         } finally {
             if (fout != null) {
                 try {
                     fout.close();
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    LiLog.debug(e);
                 }
             }
         }
+        LiLog.debug("write " + filePath + ": successful=" + successful);
         return successful;
     }
 
     public static String readText(String filePath) {
-        FileInputStream fin = null;
+        FileInputStream inputStream = null;
         try {
             File file = new File(filePath);
             if (!file.exists()) {
+                LiLog.debug(filePath + " not exists");
                 return "";
             }
             StringBuilder sb = new StringBuilder();
-            fin = new FileInputStream(file);
+            inputStream = new FileInputStream(file);
             byte[] buffer = new byte[2048];
             while (true) {
-                int len = fin.read(buffer);
+                int len = inputStream.read(buffer);
                 if (len == -1) {
                     break;
                 } else {
-                    sb.append(new String(buffer, 0, len, "utf-8"));
+                    //noinspection CharsetObjectCanBeUsed
+                    sb.append(new String(buffer, 0, len, Charset.forName("UTF-8")));
                 }
             }
+            LiLog.debug("read " + filePath + " success");
             return sb.toString();
         } catch (Exception e) {
-            e.printStackTrace();
+            LiLog.debug(e);
         } finally {
-            if (fin != null) {
+            if (inputStream != null) {
                 try {
-                    fin.close();
+                    inputStream.close();
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    LiLog.debug(e);
                 }
             }
         }
+        LiLog.debug("read " + filePath + " failure");
         return "";
     }
 

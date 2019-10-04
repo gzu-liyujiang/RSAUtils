@@ -1,11 +1,16 @@
-package com.company;
+package com.gitee.li_yu_jiang.toolkit;
 
-import java.io.UnsupportedEncodingException;
+import java.nio.charset.Charset;
+import java.util.regex.Pattern;
 
 /**
- * BASE64工具类，参阅 http://blog.csdn.net/jdsjlzx/article/details/41441147
+ * BASE64编码解码工具类。
+ * 参阅 http://blog.csdn.net/jdsjlzx/article/details/41441147
+ *
+ * @author 大定府羡民
  */
-public class Base64Utils {
+@SuppressWarnings({"WeakerAccess", "unused"})
+public final class LiBase64 {
     private static char[] base64EncodeChars = new char[]
             {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
                     'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
@@ -19,9 +24,23 @@ public class Base64Utils {
                     30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, -1, -1,
                     -1, -1, -1};
 
+    private LiBase64() {
+    }
+
     /**
-     * 加密
+     * 判断字符串是否BASE64编码：
+     * 1.字符串只可能包含A-Z，a-z，0-9，+，/，=字符
+     * 2.字符串长度是4的倍数
+     * 3.=只会出现在字符串最后，可能没有或者一个等号或者两个等号
      */
+    public static boolean isBase64(String str) {
+        if (LiString.isBlank(str)) {
+            return false;
+        }
+        String base64Pattern = "^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{4}|[A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)$";
+        return Pattern.matches(base64Pattern, str);
+    }
+
     public static String encode(byte[] data) {
         //return android.util.Base64.encodeToString(data, android.util.Base64.DEFAULT);
         StringBuilder sb = new StringBuilder();
@@ -37,78 +56,71 @@ public class Base64Utils {
                 break;
             }
             b2 = data[i++] & 0xff;
+            int i1 = ((b1 & 0x03) << 4) | ((b2 & 0xf0) >>> 4);
             if (i == len) {
                 sb.append(base64EncodeChars[b1 >>> 2]);
-                sb.append(base64EncodeChars[((b1 & 0x03) << 4) | ((b2 & 0xf0) >>> 4)]);
+                sb.append(base64EncodeChars[i1]);
                 sb.append(base64EncodeChars[(b2 & 0x0f) << 2]);
                 sb.append("=");
                 break;
             }
             b3 = data[i++] & 0xff;
             sb.append(base64EncodeChars[b1 >>> 2]);
-            sb.append(base64EncodeChars[((b1 & 0x03) << 4) | ((b2 & 0xf0) >>> 4)]);
+            sb.append(base64EncodeChars[i1]);
             sb.append(base64EncodeChars[((b2 & 0x0f) << 2) | ((b3 & 0xc0) >>> 6)]);
             sb.append(base64EncodeChars[b3 & 0x3f]);
         }
         return sb.toString();
     }
 
-    /**
-     * 解密
-     */
     public static byte[] decode(String str) {
         //return android.util.Base64.decode(str, android.util.Base64.DEFAULT);
-        try {
-            return decodePrivate(str);
-        } catch (UnsupportedEncodingException e) {
-            e.printStackTrace();
-        }
-        return new byte[]{};
-    }
-
-    private static byte[] decodePrivate(String str) throws UnsupportedEncodingException {
         StringBuilder sb = new StringBuilder();
-        byte[] data = null;
-        data = str.getBytes("US-ASCII");
+        //noinspection CharsetObjectCanBeUsed
+        byte[] data = str.getBytes(Charset.forName("US-ASCII"));
         int len = data.length;
         int i = 0;
         int b1, b2, b3, b4;
+        //noinspection CharsetObjectCanBeUsed
+        Charset iso88591 = Charset.forName("ISO-8859-1");
         while (i < len) {
-
             do {
                 b1 = base64DecodeChars[data[i++]];
             } while (i < len && b1 == -1);
-            if (b1 == -1)
+            if (b1 == -1) {
                 break;
-
+            }
             do {
                 b2 = base64DecodeChars[data[i++]];
             } while (i < len && b2 == -1);
-            if (b2 == -1)
+            if (b2 == -1) {
                 break;
+            }
             sb.append((char) ((b1 << 2) | ((b2 & 0x30) >>> 4)));
-
             do {
                 b3 = data[i++];
-                if (b3 == 61)
-                    return sb.toString().getBytes("ISO8859-1");
+                if (b3 == 61) {
+                    return sb.toString().getBytes(iso88591);
+                }
                 b3 = base64DecodeChars[b3];
             } while (i < len && b3 == -1);
-            if (b3 == -1)
+            if (b3 == -1) {
                 break;
+            }
             sb.append((char) (((b2 & 0x0f) << 4) | ((b3 & 0x3c) >>> 2)));
-
             do {
                 b4 = data[i++];
-                if (b4 == 61)
-                    return sb.toString().getBytes("ISO8859-1");
+                if (b4 == 61) {
+                    return sb.toString().getBytes(iso88591);
+                }
                 b4 = base64DecodeChars[b4];
             } while (i < len && b4 == -1);
-            if (b4 == -1)
+            if (b4 == -1) {
                 break;
+            }
             sb.append((char) (((b3 & 0x03) << 6) | b4));
         }
-        return sb.toString().getBytes("ISO8859-1");
+        return sb.toString().getBytes(iso88591);
     }
 
 }
