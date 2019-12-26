@@ -5,12 +5,13 @@ import com.gitee.li_yu_jiang.toolkit.LiRSA;
 import com.gitee.li_yu_jiang.logger.LiLog;
 import com.gitee.li_yu_jiang.toolkit.LiFile;
 
+import java.io.File;
 import java.security.KeyPair;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 
 public class Main {
-    private static final String PROJECT_PATH = "/home/liyujiang/Documents/JavaProjects/RSADemo/";
+    private static final String PROJECT_PATH = new File(System.getProperty("user.dir")).getAbsolutePath() + File.separator;
     private static final String JKS_PATH = PROJECT_PATH + "test.jks";
     private static final String JKS_STORE_PASSWORD = "123456";
     private static final String JKS_ALIAS = "test";
