@@ -86,7 +86,9 @@ public class Main {
                 "3pWYN3DSqKelN8mbmr3mBDs0Yi0xatcjph1R1qU" +
                 "wNEdtff/nfbn8bVEZYUG+nItYMWfQ==\n" +
                 "-----END ACTIVATION CODE-----");
-        LiLog.debug("result=" + result);
+        LiLog.debug("activationCode equals=" + result);
+        result = LiRSA.verify(machineCode.getBytes(), publicKey, sign);
+        LiLog.debug("verify result=" + result);
     }
 
 }
