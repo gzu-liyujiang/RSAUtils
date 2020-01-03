@@ -24,9 +24,9 @@ public class Main {
     }
 
     public static void main(String[] args) {
-        //generatePemFile();
-        //printKayPairInfo();
-        //signAndVerify();
+        generatePemFile();
+        printKayPairInfo();
+        signAndVerify();
         loadJKSFile();
     }
 

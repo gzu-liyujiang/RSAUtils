@@ -15,8 +15,7 @@ import javax.crypto.Cipher;
 /**
  * <pre>
  * RSA公钥/私钥/签名工具类。
- * 对于RSA算法，Android上的实现是"RSA/None/NoPadding"，
- * 标准JDK的实现是"RSA/None/PKCS1Padding"，需要添加"bcprov-jdk15-143.jar"来兼容。
+ * 对于RSA算法，Android上的实现是"RSA/None/NoPadding"，标准JDK的实现是"RSA/ECB/PKCS1Padding"。
  *
  * 字符串格式的密钥未在特殊说明情况下都为BASE64编码格式
  * 由于非对称加密速度极其缓慢，一般文件不使用它来加密而是使用对称加密，
@@ -97,9 +96,9 @@ public final class LiRSA {
 
     public static byte[] encrypt(byte[] data, RSAPublicKey publicKey) {
         try {
-            //Cipher cipher = Cipher.getInstance("RSA", new BouncyCastleProvider());
-            Cipher cipher = Cipher.getInstance("RSA");
-            cipher.init(Cipher.ENCRYPT_MODE, publicKey);
+            //Cipher cipher = Cipher.getInstance("RSA");
+            Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+             cipher.init(Cipher.ENCRYPT_MODE, publicKey);
             int length = data.length;
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             int offSet = 0;
@@ -132,8 +131,8 @@ public final class LiRSA {
 
     public static byte[] decrypt(byte[] data, RSAPrivateKey privateKey) {
         try {
-            //Cipher cipher = Cipher.getInstance("RSA", new BouncyCastleProvider());
-            Cipher cipher = Cipher.getInstance("RSA");
+            //Cipher cipher = Cipher.getInstance("RSA");
+            Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
             cipher.init(Cipher.DECRYPT_MODE, privateKey);
             int length = data.length;
             ByteArrayOutputStream out = new ByteArrayOutputStream();
