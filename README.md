@@ -1,6 +1,8 @@
 # RSADemo
 
-
+[![API 14+](https://img.shields.io/badge/API-14%2B-green.svg)](https://github.com/gzu-liyujiang/RSAUtils)
+[![bintray](https://api.bintray.com/packages/gzu-liyujiang/maven/RSAUtils/images/download.svg) ](https://bintray.com/gzu-liyujiang/maven/RSAUtils/_latestVersion)
+[![jitpack](https://jitpack.io/v/gzu-liyujiang/RSAUtils.svg)](https://jitpack.io/#gzu-liyujiang/RSAUtils)
 [![travis-ci](https://travis-ci.org/gzu-liyujiang/RSAUtils.svg?branch=master)](https://travis-ci.org/gzu-liyujiang/RSAUtils)
 [![MulanPSL](https://img.shields.io/badge/license-MulanPSL-blue.svg)](http://license.coscl.org.cn/MulanPSL)
 
