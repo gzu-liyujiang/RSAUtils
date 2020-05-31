@@ -1,0 +1,204 @@
+// See https://github.com/bintray/gradle-bintray-plugin
+//
+// 步骤一：打包到{USER_HOME}/.m2/repository
+// ./gradlew build publishToMavenLocal --info
+// "./gradlew.bat" build publishToMavenLocal --info
+//
+// 步骤二：上传到JFrog Bintray的Maven仓库，即jcenter
+// ./gradlew bintrayUpload --info
+// "./gradlew.bat" bintrayUpload --info
+
+//用于将打包项目发布到Jfrog Bintray的Maven仓库
+apply plugin: 'maven-publish'
+apply plugin: 'com.jfrog.bintray'
+
+//项目相关信息
+def pomLibGroupName = 'com.github.gzuliyujiang'
+def pomLibArtifactId = rootProject.name
+def pomLibVersion = new Date().format("yyyy.M.d")
+def pomLibDescription = "TODO description: ${rootProject.name} for Android"
+def pomSiteUrl = "https://github.com/gzu-liyujiang/${rootProject.name}"
+def pomGitUrl = "https://github.com/gzu-liyujiang/${rootProject.name}.git"
+def pomIssueUrl = "https://github.com/gzu-liyujiang/${rootProject.name}/issues"
+def pomReleaseNotesUrl = "https://github.com/gzu-liyujiang/${rootProject.name}/README.md"
+def pomLicenses = ["MIT"]
+//开发者信息
+def pomDeveloperId = 'liyujiang-gzu'
+def pomDeveloperOrg = 'gzu-liyujiang'
+def pomDeveloperName = '李玉江'
+def pomDeveloperEmail = '1032694760@qq.com'
+
+def bintrayUserName = ''
+def bintrayApiKey = ''
+try {
+    // {PROJECT_ROOT}/local.properties
+    Properties localProp = new Properties()
+    localProp.load(project.rootProject.file('local.properties').newDataInputStream())
+    // {USER_HOME}/.gradle/gradle.properties
+    Map rootProp = project.getProperties()
+    //Bintray用户信息
+    bintrayUserName = localProp.getProperty('bintrayUserName', rootProp.get('bintrayUserName', ''))
+    bintrayApiKey = localProp.getProperty('bintrayApiKey', rootProp.get('bintrayApiKey', ''))
+    println("bintray properties: user=$bintrayUserName apikey=$bintrayApiKey")
+} catch (ignore) {
+    System.err.println('read bintray user&apiKey failed')
+}
+
+/**
+ * generate xxx-sources.jar
+ */
+task sourcesJar(type: Jar) {
+    //classifier = 'sources'
+    getArchiveClassifier().set('sources')
+    from android.sourceSets.main.java.srcDirs
+}
+
+///**
+// * generate javadoc
+// */
+//task javadoc(type: Javadoc) {
+//    source = android.sourceSets.main.java.srcDirs
+//    classpath += configurations.compile
+//    classpath += project.files(android.getBootClasspath().join(File.pathSeparator))
+//    exclude '**/BuildConfig.java'
+//    exclude '**/R.java'
+//    //ignore error
+//    failOnError = false
+//}
+//
+///**
+// * generate xxx-javadoc.jar
+// */
+//task javadocJar(type: Jar, dependsOn: javadoc) {
+//    //classifier = 'javadoc'
+//    getArchiveClassifier().set('javadoc')
+//    from javadoc.destinationDir
+//}
+//
+///**
+// * javadoc configure
+// */
+//javadoc {
+//    options {
+//        encoding "UTF-8"
+//        charSet 'UTF-8'
+//        author true
+//        version true
+//        title pomLibArtifactId
+//    }
+//}
+
+publishing {
+    publications {
+        aarPublication(MavenPublication) {
+            group = pomLibGroupName
+            version = pomLibVersion
+            description = pomLibDescription
+            artifactId pomLibArtifactId
+            artifact "${buildDir}/outputs/aar/${project.archivesBaseName}-release.aar"
+            //artifact javadocJar
+            artifact sourcesJar
+            pom.withXml {
+                def root = asNode()
+                root.appendNode('name', pomLibArtifactId)
+                root.appendNode('description', pomLibDescription)
+                root.appendNode('url', pomSiteUrl)
+                def developer = root.appendNode('developers').appendNode('developer')
+                developer.appendNode('id', pomDeveloperId)
+                developer.appendNode('name', pomDeveloperName)
+                developer.appendNode('email', pomDeveloperEmail)
+                // Define this explicitly if using implementation or api configurations
+                def dependenciesNode = root['dependencies'][0] ?: root.appendNode('dependencies')
+                def addDependency = {
+                    // Ensure dependencies such as fileTree are not included.
+                    if (it.group && it.name && it.version) {
+                        def dependencyNode = dependenciesNode.appendNode('dependency')
+                        dependencyNode.appendNode('groupId', it.group)
+                        dependencyNode.appendNode('artifactId', it.name)
+                        if (it.group == pomLibGroupName && it.version == 'unspecified') {
+                            dependencyNode.appendNode('version', pomLibVersion)
+                        } else {
+                            dependencyNode.appendNode('version', it.version)
+                        }
+                        if (it.hasProperty('optional') && it.optional) {
+                            dependencyNode.appendNode('optional', 'true')
+                        }
+                    }
+                }
+                // Iterate over the implementation dependencies (we don't want the test ones), adding a <dependency> node for each
+                configurations.implementation.allDependencies.each addDependency
+                configurations.api.allDependencies.each addDependency
+            }
+        }
+    }
+}
+
+bintray {
+
+    user = bintrayUserName
+    key = bintrayApiKey
+
+    //对应前面的publishing.publications.mavenJava
+    publications = ['aarPublication']
+    //[Default: false] Whether to run this as dry-run, without deploying
+    dryRun = false
+    //[Default: false] Whether version should be auto published after an upload
+    publish = true
+    //[Default: false] Whether to override version artifacts already published
+    override = true
+
+    //Package configuration. The plugin will use the repo and name property to check if the package already exists. In that case, there's no need to configure the other package property (like userOrg, desc, etc).
+    pkg {
+        //existing repository in bintray to add the artifacts to (for example: 'generic', 'maven' etc)
+        repo = "maven"
+        //package name
+        name = pomLibArtifactId
+        //发布到中央仓库上的项目说明
+        desc = pomLibDescription
+        //an optional organization name when the repo belongs to one of the user's orgs. If not added will use 'BINTRAY_USER' by default
+        userOrg = pomDeveloperOrg
+        //your package licenses (mandatory if the package doesn't exist yet and must be created, and if the package is an OSS package; optional otherwise)
+        licenses = pomLicenses
+        //your VCS URL (mandatory if the package doesn't exist yet and must be created, and if the package is an OSS package; optional otherwise)
+        vcsUrl = pomGitUrl
+        //项目主页
+        websiteUrl = pomSiteUrl
+        //项目讨论页
+        issueTrackerUrl = pomIssueUrl
+        publicDownloadNumbers = true
+        //Optional Github readme file
+        githubReleaseNotesFile = pomReleaseNotesUrl
+
+        //Optional version descriptor
+        version {
+            //Bintray logical version name
+            name = pomLibVersion
+            //Optional - Version-specific description
+            desc = pomLibDescription
+            //Optional - Date of the version release. 2 possible values: date in the format of 'yyyy-MM-dd'T'HH:mm:ss.SSSZZ' OR a java.util.Date instance
+            released = new Date()
+            //版本控制Tag名称
+            vcsTag = pomLibVersion
+            //Optional configuration for GPG signing
+            gpg {
+                //Determines whether to GPG sign the files. The default is false
+                sign = false
+                //Optional. The passphrase for GPG signing
+                //passphrase = 'passphrase'
+            }
+            //Optional configuration for Maven Central sync of the version
+            mavenCentralSync {
+                //[Default: true] Determines whether to sync the version to Maven Central
+                sync = false
+                //OSS user token: mandatory
+                //user = 'userToken'
+                //OSS user password: mandatory
+                //password = 'paasword'
+                //Optional property. By default the staging repository is closed and artifacts are released to Maven Central. You can optionally turn this behaviour off (by puting 0 as value) and release the version manually.
+                close = '1'
+            }
+        }
+
+    }
+
+}
