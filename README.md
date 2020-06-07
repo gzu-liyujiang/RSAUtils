@@ -11,6 +11,20 @@ RSA算法工具类及其demo
 - 公钥加密，私钥解密。
 - 私钥签名，公钥验证。
 
+### 远程依赖
+
+```groovy
+allprojects {
+    repositories {
+        maven { url "https://jitpack.io" }
+    }
+}
+
+dependencies {
+    implementation 'com.github.gzu-liyujiang:RSAUtils:2020.6.1'
+}
+```
+
 ### 封装的方法
 
 ```text
@@ -88,4 +102,18 @@ W/liyujiang: │    MainActivity.decodeKeyAndGenerateLicenseKey  (MainActivity.j
 W/liyujiang: ├┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
 W/liyujiang: │ verify result=true
 W/liyujiang: └────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+```
+
+### 许可授权
+```text
+Copyright (c) 2019-2020 gzu-liyujiang <1032694760@qq.com>
+
+RSAUtils is licensed under the Mulan PSL v1.
+You can use this software according to the terms and conditions of the Mulan PSL v1.
+You may obtain a copy of Mulan PSL v1 at:
+    http://license.coscl.org.cn/MulanPSL
+THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
+PURPOSE.
+See the Mulan PSL v1 for more details.
 ```
