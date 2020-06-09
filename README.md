@@ -1,4 +1,4 @@
-# RSADemo
+# RSAUtils
 
 [![API 14+](https://img.shields.io/badge/API-14%2B-green.svg)](https://github.com/gzu-liyujiang/RSAUtils)
 [![bintray](https://api.bintray.com/packages/gzu-liyujiang/maven/RSAUtils/images/download.svg) ](https://bintray.com/gzu-liyujiang/maven/RSAUtils/_latestVersion)
@@ -6,10 +6,13 @@
 [![travis-ci](https://travis-ci.org/gzu-liyujiang/RSAUtils.svg?branch=master)](https://travis-ci.org/gzu-liyujiang/RSAUtils)
 [![MulanPSL](https://img.shields.io/badge/license-MulanPSL-blue.svg)](http://license.coscl.org.cn/MulanPSL)
 
-RSA算法工具类及其demo   
+AndroidKeyStore本地安全存储，Java及Android平台通用的“RSA+AES”算法工具类及其例子。 
 
+- 敏感信息本地存储及网络传输。
+- RSA&AES加密，RSA&AES解密。
 - 公钥加密，私钥解密。
 - 私钥签名，公钥验证。
+- 软件激活码/授权码。
 
 ### 远程依赖
 
@@ -28,12 +31,17 @@ dependencies {
 ### 封装的方法
 
 ```text
-generateKeyPair
-encodeToString
-encryptData
-decryptData
-signData
-verifyData
+generateKeyPairUseAKS
+generateKeyPairUseJKS
+generateKeyPairUseRandom
+encryptUseAKS
+decryptUseAKS
+encodePublicKeyToString
+encodePrivateKeyToString
+encryptUsePK
+decryptUsePK
+sign
+verify
 obtainPublicKeyFromEncoded
 obtainPrivateKeyFromEncoded
 obtainPublicKeyFromFile

@@ -16,14 +16,20 @@ import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.View;
+import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.github.gzuliyujiang.logger.Logger;
+import com.github.gzuliyujiang.rsautils.Base64Utils;
 import com.github.gzuliyujiang.rsautils.RSAUtils;
 import com.yanzhenjie.permission.AndPermission;
 
@@ -33,6 +39,7 @@ import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 import java.util.Objects;
 
+@RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN)
 public class MainActivity extends AppCompatActivity {
     private static final String[] PERMISSIONS_All_NEED = {
             Manifest.permission.READ_EXTERNAL_STORAGE,
@@ -57,6 +64,8 @@ public class MainActivity extends AppCompatActivity {
             "Ogclq5CHjFTyyAUcYbrbAFCe+tXsDdes3aGkhiQak+HWsze5W/TZ/VLO9VCMRwjHP6UJY0hT669R\n" +
             "g9r1HxSbtfxwc6T6zo8ASwvNEwLgYEASe1JZ9pBbXQjBVc2KvRW1kn6P5QIDAQAB\n" +
             "-----END RSA PUBLIC KEY-----";
+    private EditText edtPlainText;
+    private TextView tvEncryptedText;
     private static String saveDir;
 
     @Override
@@ -64,6 +73,8 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         checkAllPermissions(this);
         setContentView(R.layout.activity_main);
+        edtPlainText = findViewById(R.id.edtPlainText);
+        tvEncryptedText = findViewById(R.id.tvEncryptedText);
         saveDir = Objects.requireNonNull(getExternalFilesDir("rsa")).getAbsolutePath();
     }
 
@@ -91,6 +102,34 @@ public class MainActivity extends AppCompatActivity {
         normalDialog.show();
     }
 
+    public void onAndroidKeyStoreEncrypt(View view) {
+        String text = edtPlainText.getText().toString();
+        if (TextUtils.isEmpty(text)) {
+            Toast.makeText(this, "请输入要加密的内容", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        byte[] encryptedBytes = RSAUtils.encryptUseAKS(this, "liyujiang", text.getBytes());
+        if (encryptedBytes == null) {
+            Toast.makeText(this, "加密失败", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        tvEncryptedText.setText(Base64Utils.encode(encryptedBytes));
+    }
+
+    public void onAndroidKeyStoreDecrypt(View view) {
+        String text = tvEncryptedText.getText().toString();
+        if (TextUtils.isEmpty(text)) {
+            Toast.makeText(this, "还没有加密的文本", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        byte[] decryptedBytes = RSAUtils.decryptUseAKS(this, "liyujiang", Base64Utils.decode(text.getBytes()));
+        if (decryptedBytes == null) {
+            Toast.makeText(this, "解密失败", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        Toast.makeText(this, new String(decryptedBytes), Toast.LENGTH_LONG).show();
+    }
+
     private static void getAppDetailSettingIntent(Context context) {
         Intent intent = new Intent();
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -108,7 +147,7 @@ public class MainActivity extends AppCompatActivity {
         Logger.print("registerCode=" + registerCode);
         String LICENSE_KEY_BEGIN = "-----BEGIN LICENSE KEY-----";
         String LICENSE_KEY_END = "-----END LICENSE KEY-----";
-        String sign = RSAUtils.signData(registerCode.getBytes(), privateKey);
+        String sign = RSAUtils.sign(registerCode.getBytes(), privateKey);
         String licenseKey = LICENSE_KEY_BEGIN + "\n" + sign + "\n" + LICENSE_KEY_END;
         Logger.print("licenseKey: \n" + licenseKey);
         boolean result = licenseKey.equals("-----BEGIN LICENSE KEY-----\n" +
@@ -117,13 +156,13 @@ public class MainActivity extends AppCompatActivity {
                 "abni0mqwIioVuf9jEnI=\n" +
                 "-----END LICENSE KEY-----");
         Logger.print("licenseKey equals=" + result);
-        result = RSAUtils.verifyData(registerCode.getBytes(), publicKey, sign);
+        result = RSAUtils.verify(registerCode.getBytes(), publicKey, sign);
         Logger.print("verify result=" + result);
         Toast.makeText(this, "LICENSE KEY已生成", Toast.LENGTH_SHORT).show();
     }
 
     public void generatePemFile(View view) {
-        KeyPair keyPair = RSAUtils.generateKeyPair();
+        KeyPair keyPair = RSAUtils.generateKeyPairUseRandom();
         assert keyPair != null;
         RSAPublicKey publicKey = (RSAPublicKey) keyPair.getPublic();
         RSAPrivateKey privateKey = (RSAPrivateKey) keyPair.getPrivate();

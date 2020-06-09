@@ -6,6 +6,34 @@
     android:gravity="center"
     android:orientation="vertical">
 
+    <androidx.appcompat.widget.AppCompatEditText
+        android:id="@+id/edtPlainText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="10dp"
+        android:hint="输入要加密的文本" />
+
+    <TextView
+        android:id="@+id/tvEncryptedText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="10dp"
+        android:hint="这里是已加密的文本" />
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:onClick="onAndroidKeyStoreEncrypt"
+        android:text="使用AndroidKeyStore加密"
+        tools:ignore="HardcodedText" />
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:onClick="onAndroidKeyStoreDecrypt"
+        android:text="使用AndroidKeyStore解密"
+        tools:ignore="HardcodedText" />
+
     <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
