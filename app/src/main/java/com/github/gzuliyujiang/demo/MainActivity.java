@@ -34,6 +34,7 @@ import com.github.gzuliyujiang.rsautils.RSAUtils;
 import com.yanzhenjie.permission.AndPermission;
 
 import java.io.File;
+import java.nio.charset.Charset;
 import java.security.KeyPair;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
@@ -113,7 +114,8 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(this, "加密失败", Toast.LENGTH_SHORT).show();
             return;
         }
-        tvEncryptedText.setText(Base64Utils.encode(encryptedBytes));
+        //noinspection CharsetObjectCanBeUsed
+        tvEncryptedText.setText(Base64Utils.encode(encryptedBytes, Charset.forName("UTF-8")));
     }
 
     public void onAndroidKeyStoreDecrypt(View view) {
