@@ -5,18 +5,14 @@ buildscript {
         jcenter()
         google()
     }
-
     dependencies {
         classpath 'com.android.tools.build:gradle:4.0.0'
         classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.8.5'
-        if (appResGuardEnable.toString().equalsIgnoreCase("true")) {
-            classpath "com.tencent.mm:AndResGuard-gradle-plugin:${appResGuardVersion}"
-        }
+        classpath "com.tencent.mm:AndResGuard-gradle-plugin:${appResGuardVersion}"
     }
 }
 
 allprojects {
-
     repositories {
         //本地的Maven仓库：{USER_HOME}/.m2/repository，如C:/Users/Administrator/.m2/repository
         mavenLocal()
@@ -29,32 +25,13 @@ allprojects {
         //谷歌公司提供的Maven仓库：https://maven.google.com
         google()
     }
-
 }
 
 subprojects {
-
     gradle.projectsEvaluated {
         tasks.withType(JavaCompile) {
             //增加一些编译选项
             //options.compilerArgs << "-Xlint:unchecked" << "-Xlint:deprecation"
-        }
-    }
-
-    afterEvaluate { def project ->
-        ext.pluginContainer = project.getPlugins()
-        def hasAppPlugin = ext.pluginContainer.hasPlugin("com.android.application")
-        def hasLibPlugin = ext.pluginContainer.hasPlugin("com.android.library")
-        configure(project) {
-            if (hasAppPlugin || hasLibPlugin) {
-                apply from: "${rootDir}/gradle/common.gradle"
-            }
-            if (hasAppPlugin && appResGuardEnable.toString().equalsIgnoreCase("true")) {
-                apply from: "${rootDir}/gradle/resguard.gradle"
-            }
-            if (hasLibPlugin) {
-                apply from: "${rootDir}/gradle/publish.gradle"
-            }
         }
     }
 }

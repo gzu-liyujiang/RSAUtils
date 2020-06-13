@@ -1,9 +1,8 @@
 // 参见 https://github.com/shwenzhang/AndResGuard
-
 apply plugin: 'AndResGuard'
 
 andResGuard {
-    File file = new File(rootDir, "resource_mapping.txt")
+    File file = rootProject.file("resource_mapping.txt")
     mappingFile = file.exists() ? file : null
     use7zip = true
     useSign = true
@@ -14,7 +13,13 @@ andResGuard {
     // It will merge the duplicated resources, but don't rely on this feature too much.
     // it's always better to remove duplicated resource from repo
     mergeDuplicatedRes = true
-    // 不混淆的资源白名单，参阅 https://github.com/shwenzhang/AndResGuard/blob/master/doc/white_list.md
+    /**
+     * Optional: if finalApkBackupPath is null, AndResGuard will overwrite final apk
+     * to the path which assemble[Task] write to
+     **/
+    finalApkBackupPath = rootProject.file("release/app-release-resguard.apk")
+    // You need put all resource which access via getIdentifier into whiteList.
+    // See https://github.com/shwenzhang/AndResGuard/blob/master/doc/white_list.md
     whiteList = [
             // Your icon
             "R.mipmap.ic_launcher*",
@@ -111,15 +116,10 @@ andResGuard {
         artifact = "com.tencent.mm:SevenZip:${appResGuardVersion}"
     }
     /**
-     * Optional: if finalApkBackupPath is null, AndResGuard will overwrite final apk
-     * to the path which assemble[Task] write to
-     **/
-    finalApkBackupPath = null
-    /**
      * Optional: Specifies the name of the message digest algorithm to user when digesting the entries of JAR file
      * Only works in V1signing, default value is "SHA-1"
      **/
-    digestalg = "SHA-256"
+    digestalg = "SHA-1"
     sourceApk = null
     sourceBuildType = null
     sourceFlavor = null
