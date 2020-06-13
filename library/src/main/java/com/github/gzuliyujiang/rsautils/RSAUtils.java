@@ -30,6 +30,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigInteger;
+import java.nio.charset.Charset;
 import java.security.Key;
 import java.security.KeyFactory;
 import java.security.KeyPair;
@@ -83,6 +84,8 @@ public final class RSAUtils {
     private static final String AES_MODE = "AES/GCM/NoPadding";
     private static final String PREF_KEY_AES_KEY = "pk.aes_key";
     private static final String PREF_KEY_IV = "pk.iv";
+    @SuppressWarnings("CharsetObjectCanBeUsed")
+    private static final Charset CHARSET = Charset.forName("UTF-8");
     private SharedPreferences sharedPreferences;
     private String alias;
     private KeyStore keyStore;
@@ -128,12 +131,14 @@ public final class RSAUtils {
         PublicKey publicKey = keyStore.getCertificate(alias).getPublicKey();
         Cipher cipher = Cipher.getInstance(RSA_MODE);
         cipher.init(Cipher.ENCRYPT_MODE, publicKey);
-        byte[] encryptedBytes = cipher.doFinal(plainText.getBytes());
-        return Base64Utils.encode(encryptedBytes);
+        byte[] encryptedBytes = cipher.doFinal(plainText.getBytes(CHARSET));
+        return Base64Utils.encode(encryptedBytes, CHARSET);
     }
 
     private byte[] decryptByRSA(String encryptedText) throws Exception {
-        byte[] encryptedBytes = Base64Utils.decode(encryptedText.getBytes());
+        //noinspection CharsetObjectCanBeUsed
+        Charset charset = Charset.forName("UTF-8");
+        byte[] encryptedBytes = Base64Utils.decode(encryptedText.getBytes(CHARSET));
         PrivateKey privateKey = (PrivateKey) keyStore.getKey(alias, null);
         Cipher cipher = Cipher.getInstance(RSA_MODE);
         cipher.init(Cipher.DECRYPT_MODE, privateKey);
@@ -145,8 +150,8 @@ public final class RSAUtils {
         SecureRandom secureRandom = new SecureRandom();
         secureRandom.nextBytes(aesKey);
         byte[] generated = secureRandom.generateSeed(12);
-        String iv = Base64Utils.encode(generated);
-        String encryptAESKey = encryptByRSA(Base64Utils.encode(aesKey));
+        String iv = Base64Utils.encode(generated, CHARSET);
+        String encryptAESKey = encryptByRSA(Base64Utils.encode(aesKey, CHARSET));
         SharedPreferences.Editor editor = sharedPreferences.edit();
         editor.putString(PREF_KEY_IV, iv);
         editor.putString(PREF_KEY_AES_KEY, encryptAESKey);
@@ -167,7 +172,7 @@ public final class RSAUtils {
 
     private byte[] getIV() {
         String prefIV = sharedPreferences.getString(PREF_KEY_IV, "");
-        return Base64Utils.decode(Objects.requireNonNull(prefIV).getBytes());
+        return Base64Utils.decode(prefIV, CHARSET);
     }
 
     private SecretKeySpec getAESKey() throws Exception {
@@ -269,7 +274,7 @@ public final class RSAUtils {
     }
 
     public static String encodePublicKeyToString(RSAPublicKey publicKey, boolean excludeTag) {
-        String encode = Base64Utils.encode(publicKey.getEncoded());
+        String encode = Base64Utils.encode(publicKey.getEncoded(), CHARSET);
         if (excludeTag) {
             return encode;
         }
@@ -277,7 +282,7 @@ public final class RSAUtils {
     }
 
     public static String encodePrivateKeyToString(RSAPrivateKey privateKey, boolean excludeTag) {
-        String encode = Base64Utils.encode(privateKey.getEncoded());
+        String encode = Base64Utils.encode(privateKey.getEncoded(), CHARSET);
         if (excludeTag) {
             return encode;
         }
@@ -366,7 +371,7 @@ public final class RSAUtils {
             Signature signature = Signature.getInstance("MD5withRSA");
             signature.initSign(privateKey);
             signature.update(data);
-            return Base64Utils.encode(signature.sign());
+            return Base64Utils.encode(signature.sign(), CHARSET);
         } catch (Exception e) {
             Logger.print(e);
             return null;
@@ -387,7 +392,7 @@ public final class RSAUtils {
             Signature signature = Signature.getInstance("MD5withRSA");
             signature.initVerify(publicKey);
             signature.update(data);
-            return signature.verify(Base64Utils.decode(sign.getBytes()));
+            return signature.verify(Base64Utils.decode(sign, CHARSET));
         } catch (Exception e) {
             Logger.print(e);
             return false;
@@ -430,13 +435,13 @@ public final class RSAUtils {
 
     public static RSAPublicKey obtainPublicKeyFromBase64(String publicKeyStr) {
         publicKeyStr = ignoreKeyStringTag(publicKeyStr);
-        byte[] data = Base64Utils.decode(publicKeyStr.getBytes());
+        byte[] data = Base64Utils.decode(publicKeyStr, CHARSET);
         return obtainPublicKeyFromEncoded(data);
     }
 
     public static RSAPrivateKey obtainPrivateKeyFromBase64(String privateKeyStr) {
         privateKeyStr = ignoreKeyStringTag(privateKeyStr);
-        byte[] data = Base64Utils.decode(privateKeyStr.getBytes());
+        byte[] data = Base64Utils.decode(privateKeyStr, CHARSET);
         return obtainPrivateKeyFromEncoded(data);
     }
 

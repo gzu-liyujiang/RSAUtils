@@ -45,7 +45,10 @@ public final class Base64Utils {
         return Pattern.matches(base64Pattern, str);
     }
 
-    public static String encode(byte[] data) {
+    public static String encode(byte[] data, Charset charset) throws IllegalArgumentException {
+        if (data == null || data.length == 0) {
+            throw new IllegalArgumentException("data is null");
+        }
         int len = data.length;
 
         Encoder encoder = new Encoder(DEFAULT, null);
@@ -80,11 +83,20 @@ public final class Base64Utils {
         encoder.output = new byte[output_len];
         encoder.process(data, 0, len, true);
 
-        //noinspection CharsetObjectCanBeUsed
-        return new String(encoder.output, Charset.forName("US-ASCII")).trim();
+        return new String(encoder.output, charset).trim();
     }
 
-    public static byte[] decode(byte[] data) {
+    public static byte[] decode(String data, Charset charset) throws IllegalArgumentException {
+        if (data == null || data.length() == 0) {
+            throw new IllegalArgumentException("data is null or empty");
+        }
+        return decode(data.getBytes(charset));
+    }
+
+    public static byte[] decode(byte[] data) throws IllegalArgumentException {
+        if (data == null || data.length == 0) {
+            throw new IllegalArgumentException("data is null");
+        }
         int len = data.length;
 
         // Allocate space for the most data the input could represent.
