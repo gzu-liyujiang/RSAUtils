@@ -12,48 +12,25 @@
  */
 package com.github.gzuliyujiang.rsautils;
 
-import android.content.Context;
-import android.content.SharedPreferences;
-import android.os.Build;
-import android.security.KeyPairGeneratorSpec;
-import android.security.keystore.KeyGenParameterSpec;
-import android.security.keystore.KeyProperties;
-
-import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 
 import com.github.gzuliyujiang.logger.Logger;
 
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.ByteArrayInputStream;
 import java.math.BigInteger;
-import java.nio.charset.Charset;
-import java.security.Key;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
-import java.security.KeyStore;
-import java.security.PrivateKey;
-import java.security.PublicKey;
-import java.security.SecureRandom;
 import java.security.Signature;
-import java.security.cert.Certificate;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.RSAPublicKeySpec;
 import java.security.spec.X509EncodedKeySpec;
-import java.util.Calendar;
-import java.util.Objects;
 
 import javax.crypto.Cipher;
-import javax.crypto.spec.IvParameterSpec;
-import javax.crypto.spec.SecretKeySpec;
-import javax.security.auth.x500.X500Principal;
 
 /**
  * <pre>
@@ -77,292 +54,102 @@ public final class RSAUtils {
     private static final String PUBLIC_KEY_END = "-----END RSA PUBLIC KEY-----";
     private static final String PRIVATE_KEY_BEGIN = "-----BEGIN RSA PRIVATE KEY-----";
     private static final String PRIVATE_KEY_END = "-----END RSA PRIVATE KEY-----";
-    private static final int MAX_ENCRYPT_BLOCK = 117;
-    private static final int MAX_DECRYPT_BLOCK = 128;
-    private static final String KEYSTORE_PROVIDER = "AndroidKeyStore";
     private static final String RSA_MODE = "RSA/ECB/PKCS1Padding";
-    private static final String AES_MODE = "AES/GCM/NoPadding";
-    private static final String PREF_KEY_AES_KEY = "pk.aes_key";
-    private static final String PREF_KEY_IV = "pk.iv";
-    @SuppressWarnings("CharsetObjectCanBeUsed")
-    private static final Charset CHARSET = Charset.forName("UTF-8");
-    private SharedPreferences sharedPreferences;
-    private String alias;
-    private KeyStore keyStore;
 
-    private RSAUtils(Context context, String alias) {
-        try {
-            sharedPreferences = context.getSharedPreferences("KEYSTORE_SETTINGS", Context.MODE_PRIVATE);
-            this.alias = alias;
-            keyStore = KeyStore.getInstance(KEYSTORE_PROVIDER);
-            keyStore.load(null);
-            if (!keyStore.containsAlias(alias)) {
-                generateKeyPairUseAKS(context, alias);
-                generateAESKey();
-            }
-        } catch (Exception e) {
-            Logger.print(e);
-        }
+    private RSAUtils() {
+        super();
     }
 
-    @Nullable
-    public static byte[] encryptUseAKS(Context context, String alias, byte[] plainBytes) {
-        try {
-            RSAUtils rsaUtils = new RSAUtils(context, alias);
-            return rsaUtils.encryptByAES(plainBytes);
-        } catch (Exception e) {
-            Logger.print(e);
+    /**
+     * 使用RSA公钥加密对称加密算法所使用的明文密码。
+     * 说明：RSA只支持小数据加密，对于大批量数据加密，不建议对数据分段加密，强烈建议使用以下方案：
+     * 第一步：客户端选择合适的对称加密算法（如AES、RC4、XXTEA），该算法须服务端也支持；
+     * 第二步：客户端随机生成一个对称加密算法所用的密码，使用该密码加密数据，再使用RSA公钥加密该密码；
+     * 第三步：服务端使用RSA私钥解密出对称加密算法所用的密码，再使用该密码及同样的对称加密算法解密数据。
+     * 推荐查阅这篇文章帮助理解：https://www.cnblogs.com/JeffreySun/archive/2010/06/24/1627247.html
+     */
+    public static String encrypt(byte[] plainSecretKey, RSAPublicKey publicKey) {
+        if (plainSecretKey == null || plainSecretKey.length == 0) {
+            Logger.print("plain SecretKey is empty");
             return null;
         }
-    }
-
-    @Nullable
-    public static byte[] decryptUseAKS(Context context, String alias, byte[] encryptedBytes) {
-        try {
-            RSAUtils rsaUtils = new RSAUtils(context, alias);
-            return rsaUtils.decryptByAES(encryptedBytes);
-        } catch (Exception e) {
-            Logger.print(e);
-            return null;
-        }
-    }
-
-    private String encryptByRSA(String plainText) throws Exception {
-        PublicKey publicKey = keyStore.getCertificate(alias).getPublicKey();
-        Cipher cipher = Cipher.getInstance(RSA_MODE);
-        cipher.init(Cipher.ENCRYPT_MODE, publicKey);
-        byte[] encryptedBytes = cipher.doFinal(plainText.getBytes(CHARSET));
-        return Base64Utils.encode(encryptedBytes, CHARSET);
-    }
-
-    private byte[] decryptByRSA(String encryptedText) throws Exception {
-        //noinspection CharsetObjectCanBeUsed
-        Charset charset = Charset.forName("UTF-8");
-        byte[] encryptedBytes = Base64Utils.decode(encryptedText.getBytes(CHARSET));
-        PrivateKey privateKey = (PrivateKey) keyStore.getKey(alias, null);
-        Cipher cipher = Cipher.getInstance(RSA_MODE);
-        cipher.init(Cipher.DECRYPT_MODE, privateKey);
-        return cipher.doFinal(encryptedBytes);
-    }
-
-    private void generateAESKey() throws Exception {
-        byte[] aesKey = new byte[16];
-        SecureRandom secureRandom = new SecureRandom();
-        secureRandom.nextBytes(aesKey);
-        byte[] generated = secureRandom.generateSeed(12);
-        String iv = Base64Utils.encode(generated, CHARSET);
-        String encryptAESKey = encryptByRSA(Base64Utils.encode(aesKey, CHARSET));
-        SharedPreferences.Editor editor = sharedPreferences.edit();
-        editor.putString(PREF_KEY_IV, iv);
-        editor.putString(PREF_KEY_AES_KEY, encryptAESKey);
-        editor.apply();
-    }
-
-    private byte[] encryptByAES(byte[] plainBytes) throws Exception {
-        Cipher cipher = Cipher.getInstance(AES_MODE);
-        cipher.init(Cipher.ENCRYPT_MODE, getAESKey(), new IvParameterSpec(getIV()));
-        return cipher.doFinal(plainBytes);
-    }
-
-    private byte[] decryptByAES(byte[] encryptedBytes) throws Exception {
-        Cipher cipher = Cipher.getInstance(AES_MODE);
-        cipher.init(Cipher.DECRYPT_MODE, getAESKey(), new IvParameterSpec(getIV()));
-        return cipher.doFinal(encryptedBytes);
-    }
-
-    private byte[] getIV() {
-        String prefIV = sharedPreferences.getString(PREF_KEY_IV, "");
-        return Base64Utils.decode(prefIV, CHARSET);
-    }
-
-    private SecretKeySpec getAESKey() throws Exception {
-        String prefAESKey = sharedPreferences.getString(PREF_KEY_AES_KEY, "");
-        byte[] aesKey = decryptByRSA(Objects.requireNonNull(prefAESKey));
-        return new SecretKeySpec(aesKey, AES_MODE);
-    }
-
-    @Nullable
-    public static KeyPair generateKeyPairUseAKS(Context context, String alias) {
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                return generateKeyPairAboveApi23(alias);
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
-                return generateKeyPairApi18ToApi22(context, alias);
-            } else {
-                throw new RuntimeException(KEYSTORE_PROVIDER + "不支持 Android SDK " + Build.VERSION.SDK_INT);
-            }
-        } catch (Exception e) {
-            Logger.print(e);
-            return null;
-        }
-    }
-
-    @RequiresApi(api = Build.VERSION_CODES.M)
-    private static KeyPair generateKeyPairAboveApi23(String alias) throws Exception {
-        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_RSA,
-                KEYSTORE_PROVIDER);
-        KeyGenParameterSpec keyGenParameterSpec = new KeyGenParameterSpec
-                .Builder(alias, KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
-                .setDigests(KeyProperties.DIGEST_SHA256, KeyProperties.DIGEST_SHA512)
-                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_PKCS1)
-                .build();
-        keyPairGenerator.initialize(keyGenParameterSpec);
-        return keyPairGenerator.generateKeyPair();
-    }
-
-    @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
-    private static KeyPair generateKeyPairApi18ToApi22(Context context, String alias) throws Exception {
-        Calendar start = Calendar.getInstance();
-        Calendar end = Calendar.getInstance();
-        end.add(Calendar.YEAR, 30);
-        KeyPairGeneratorSpec spec = new KeyPairGeneratorSpec.Builder(context)
-                .setAlias(alias)
-                .setSubject(new X500Principal("CN=" + alias))
-                .setSerialNumber(BigInteger.TEN)
-                .setStartDate(start.getTime())
-                .setEndDate(end.getTime())
-                .build();
-        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA", KEYSTORE_PROVIDER);
-        keyPairGenerator.initialize(spec);
-        return keyPairGenerator.generateKeyPair();
-    }
-
-    @Nullable
-    public static KeyPair generateKeyPairUseJKS(File jksFile, String jksPwd, String alias, String pwd) {
-        try {
-            return generateKeyPairUseJKS(new FileInputStream(jksFile), jksPwd, alias, pwd);
-        } catch (Exception e) {
-            Logger.print(e);
-            return null;
-        }
-    }
-
-    @Nullable
-    public static KeyPair generateKeyPairUseJKS(InputStream jksStream, String jksPwd, String alias, String pwd) {
-        try {
-            KeyStore keystore = KeyStore.getInstance("jks");
-            keystore.load(jksStream, jksPwd.toCharArray());
-            Key key = keystore.getKey(alias, pwd.toCharArray());
-            if (key instanceof PrivateKey) {
-                PrivateKey privateKey = (PrivateKey) key;
-                Certificate certificate = keystore.getCertificateChain(alias)[0];
-                PublicKey publicKey = certificate.getPublicKey();
-                return new KeyPair(publicKey, privateKey);
-            }
-        } catch (Exception e) {
-            Logger.print(e);
-        } finally {
-            try {
-                jksStream.close();
-            } catch (IOException ignore) {
-            }
-        }
-        return null;
-    }
-
-    @Nullable
-    public static KeyPair generateKeyPairUseRandom() {
-        try {
-            KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
-            //密钥长度范围：512～2048， 一般1024
-            generator.initialize(1024);
-            return generator.genKeyPair();
-        } catch (Exception e) {
-            Logger.print(e);
-            return null;
-        }
-    }
-
-    public static String encodePublicKeyToString(RSAPublicKey publicKey, boolean excludeTag) {
-        String encode = Base64Utils.encode(publicKey.getEncoded(), CHARSET);
-        if (excludeTag) {
-            return encode;
-        }
-        return PUBLIC_KEY_BEGIN + "\n" + encode + "\n" + PUBLIC_KEY_END;
-    }
-
-    public static String encodePrivateKeyToString(RSAPrivateKey privateKey, boolean excludeTag) {
-        String encode = Base64Utils.encode(privateKey.getEncoded(), CHARSET);
-        if (excludeTag) {
-            return encode;
-        }
-        return PRIVATE_KEY_BEGIN + "\n" + encode + "\n" + PRIVATE_KEY_END;
-    }
-
-    public static byte[] encryptUsePK(byte[] data, String publicKeyStr) {
-        RSAPublicKey publicKey = obtainPublicKeyFromBase64(publicKeyStr);
-        return encryptUsePK(data, publicKey);
-    }
-
-    public static byte[] encryptUsePK(byte[] data, RSAPublicKey publicKey) {
         try {
             Cipher cipher = Cipher.getInstance(RSA_MODE);
             cipher.init(Cipher.ENCRYPT_MODE, publicKey);
-            int length = data.length;
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            int offSet = 0;
-            byte[] cache;
-            int i = 0;
-            // 对数据分段加密
-            while (length - offSet > 0) {
-                if (length - offSet > MAX_ENCRYPT_BLOCK) {
-                    cache = cipher.doFinal(data, offSet, MAX_ENCRYPT_BLOCK);
-                } else {
-                    cache = cipher.doFinal(data, offSet, length - offSet);
-                }
-                out.write(cache, 0, cache.length);
-                i++;
-                offSet = i * MAX_ENCRYPT_BLOCK;
-            }
-            byte[] encryptedData = out.toByteArray();
-            out.close();
-            return encryptedData;
+            byte[] encryptedData = cipher.doFinal(plainSecretKey);
+            return Base64Utils.encodeToString(encryptedData);
         } catch (Exception e) {
             Logger.print(e);
             return null;
         }
     }
 
-    public static byte[] decryptUsePK(byte[] data, String privateKeyStr) {
-        RSAPrivateKey privateKey = obtainPrivateKeyFromBase64(privateKeyStr);
-        return decryptUsePK(data, privateKey);
+    /**
+     * 使用RSA公钥加密对称加密算法所使用的明文密码
+     */
+    public static String encrypt(byte[] plainSecretKey, String publicKeyBase64) {
+        if (plainSecretKey == null || plainSecretKey.length == 0) {
+            Logger.print("plain SecretKey is empty");
+            return null;
+        }
+        RSAPublicKey publicKey = generatePublicKey(publicKeyBase64);
+        return encrypt(plainSecretKey, publicKey);
     }
 
-    public static byte[] decryptUsePK(byte[] data, RSAPrivateKey privateKey) {
+    /**
+     * 使用RSA私钥解密对称加密算法所使用的密文密码
+     */
+    public static byte[] decrypt(String encryptedSecretKey, RSAPrivateKey privateKey) {
+        if (encryptedSecretKey == null || encryptedSecretKey.length() == 0) {
+            Logger.print("encrypted SecretKey is empty");
+            return null;
+        }
         try {
             Cipher cipher = Cipher.getInstance(RSA_MODE);
             cipher.init(Cipher.DECRYPT_MODE, privateKey);
-            int length = data.length;
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            int offSet = 0;
-            byte[] cache;
-            int i = 0;
-            // 对数据分段解密
-            while (length - offSet > 0) {
-                if (length - offSet > MAX_DECRYPT_BLOCK) {
-                    cache = cipher.doFinal(data, offSet, MAX_DECRYPT_BLOCK);
-                } else {
-                    cache = cipher.doFinal(data, offSet, length - offSet);
-                }
-                out.write(cache, 0, cache.length);
-                i++;
-                offSet = i * MAX_DECRYPT_BLOCK;
-            }
-            byte[] decryptedData = out.toByteArray();
-            out.close();
-            return decryptedData;
+            return cipher.doFinal(Base64Utils.decodeFromString(encryptedSecretKey));
         } catch (Exception e) {
             Logger.print(e);
             return null;
         }
     }
 
-    public static String sign(byte[] data, String privateKeyStr) {
-        RSAPrivateKey privateKey = obtainPrivateKeyFromBase64(privateKeyStr);
+    /**
+     * 使用RSA私钥解密对称加密算法所使用的密文密码
+     */
+    public static byte[] decrypt(String encryptedSecretKey, String privateKeyBase64) {
+        if (encryptedSecretKey == null || encryptedSecretKey.length() == 0) {
+            Logger.print("encrypted SecretKey is empty");
+            return null;
+        }
+        RSAPrivateKey privateKey = generatePrivateKey(privateKeyBase64);
+        return decrypt(encryptedSecretKey, privateKey);
+    }
+
+    /**
+     * 使用私钥对数据签名
+     */
+    public static byte[] sign(byte[] data, String privateKeyBase64) {
+        if (data == null || data.length == 0) {
+            Logger.print("data is empty");
+            return null;
+        }
+        RSAPrivateKey privateKey = generatePrivateKey(privateKeyBase64);
+        if (privateKey == null) {
+            Logger.print("private key is null");
+            return null;
+        }
         return sign(data, privateKey);
     }
 
-    public static String sign(byte[] data, RSAPrivateKey privateKey) {
+    /**
+     * 使用私钥对数据签名
+     */
+    public static byte[] sign(byte[] data, RSAPrivateKey privateKey) {
+        if (data == null || data.length == 0) {
+            Logger.print("data is empty");
+            return null;
+        }
         if (privateKey == null) {
             Logger.print("private key is null");
             return null;
@@ -371,19 +158,37 @@ public final class RSAUtils {
             Signature signature = Signature.getInstance("MD5withRSA");
             signature.initSign(privateKey);
             signature.update(data);
-            return Base64Utils.encode(signature.sign(), CHARSET);
+            return signature.sign();
         } catch (Exception e) {
             Logger.print(e);
             return null;
         }
     }
 
-    public static boolean verify(byte[] data, String publicKeyStr, String sign) {
-        RSAPublicKey publicKey = obtainPublicKeyFromBase64(publicKeyStr);
+    /**
+     * 使用公钥验证数据签名
+     */
+    public static boolean verify(byte[] data, String publicKeyBase64, byte[] sign) {
+        if (data == null || data.length == 0) {
+            Logger.print("data is empty");
+            return false;
+        }
+        RSAPublicKey publicKey = generatePublicKey(publicKeyBase64);
+        if (publicKey == null) {
+            Logger.print("public key is null");
+            return false;
+        }
         return verify(data, publicKey, sign);
     }
 
-    public static boolean verify(byte[] data, RSAPublicKey publicKey, String sign) {
+    /**
+     * 使用公钥验证数据签名
+     */
+    public static boolean verify(byte[] data, RSAPublicKey publicKey, byte[] sign) {
+        if (data == null || data.length == 0) {
+            Logger.print("data is empty");
+            return false;
+        }
         if (publicKey == null) {
             Logger.print("public key is null");
             return false;
@@ -392,40 +197,103 @@ public final class RSAUtils {
             Signature signature = Signature.getInstance("MD5withRSA");
             signature.initVerify(publicKey);
             signature.update(data);
-            return signature.verify(Base64Utils.decode(sign, CHARSET));
+            return signature.verify(sign);
         } catch (Exception e) {
             Logger.print(e);
             return false;
         }
     }
 
-    public static RSAPublicKey obtainPublicKeyFromEncoded(byte[] data) {
-        if (data.length == 0) {
-            Logger.print("data is empty");
-            return null;
-        }
+    /**
+     * 随机生成RSA密钥对
+     */
+    public static KeyPair generateKeyPair() {
         try {
-            KeyFactory keyFactory = KeyFactory.getInstance("RSA");
-            //Only RSAPublicKeySpec and X509EncodedKeySpec supported for RSA public keys
-            return (RSAPublicKey) keyFactory.generatePublic(new X509EncodedKeySpec(data));
+            KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+            //密钥长度范围：512～2048，一般1024
+            generator.initialize(1024);
+            return generator.genKeyPair();
         } catch (Exception e) {
             Logger.print(e);
             return null;
         }
     }
 
-    public static RSAPrivateKey obtainPrivateKeyFromEncoded(byte[] data) {
-        if (data.length == 0) {
-            Logger.print("data is empty");
+    /**
+     * 根据二进制BASE64编码的X509证书生成X509证书
+     */
+    public static X509Certificate generateCertificate(byte[] base64) {
+        if (base64 == null || base64.length == 0) {
+            Logger.print("base64 is empty");
+            return null;
+        }
+        try {
+            ByteArrayInputStream stream = new ByteArrayInputStream(base64);
+            CertificateFactory factory = CertificateFactory.getInstance("X.509");
+            return (X509Certificate) factory.generateCertificate(stream);
+        } catch (Exception e) {
+            Logger.print(e);
+        }
+        return null;
+    }
+
+    /**
+     * 根据字符串BASE64编码的X509证书生成X509证书
+     */
+    public static X509Certificate generateCertificate(String base64) {
+        base64 = ignoreIdentifier(base64);
+        byte[] data = Base64Utils.decode(base64.getBytes());
+        if (data == null) {
+            return null;
+        }
+        return generateCertificate(data);
+    }
+
+    /**
+     * 根据二进制BASE64编码的公钥生成RSA公钥
+     */
+    public static RSAPublicKey generatePublicKey(byte[] base64) {
+        if (base64 == null || base64.length == 0) {
+            Logger.print("base64 is empty");
+            return null;
+        }
+        try {
+            KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+            //Only RSAPublicKeySpec and X509EncodedKeySpec supported for RSA public keys
+            return (RSAPublicKey) keyFactory.generatePublic(new X509EncodedKeySpec(base64));
+        } catch (Exception e) {
+            Logger.print(e);
+            return null;
+        }
+    }
+
+    /**
+     * 根据字符串BASE64编码的公钥生成RSA公钥
+     */
+    public static RSAPublicKey generatePublicKey(String base64) {
+        base64 = ignoreIdentifier(base64);
+        byte[] data = Base64Utils.decode(base64.getBytes());
+        if (data == null) {
+            return null;
+        }
+        return generatePublicKey(data);
+    }
+
+    /**
+     * 根据二进制BASE64编码的私钥生成RSA私钥
+     */
+    public static RSAPrivateKey generatePrivateKey(byte[] base64) {
+        if (base64 == null || base64.length == 0) {
+            Logger.print("base64 is empty");
             return null;
         }
         try {
             KeyFactory keyFactory = KeyFactory.getInstance("RSA");
             try {
-                return (RSAPrivateKey) keyFactory.generatePrivate(new PKCS8EncodedKeySpec(data));
+                return (RSAPrivateKey) keyFactory.generatePrivate(new PKCS8EncodedKeySpec(base64));
             } catch (InvalidKeySpecException e) {
                 Logger.print(e);
-                return (RSAPrivateKey) keyFactory.generatePrivate(new X509EncodedKeySpec(data));
+                return (RSAPrivateKey) keyFactory.generatePrivate(new X509EncodedKeySpec(base64));
             }
         } catch (Exception e) {
             Logger.print(e);
@@ -433,23 +301,23 @@ public final class RSAUtils {
         }
     }
 
-    public static RSAPublicKey obtainPublicKeyFromBase64(String publicKeyStr) {
-        publicKeyStr = ignoreKeyStringTag(publicKeyStr);
-        byte[] data = Base64Utils.decode(publicKeyStr, CHARSET);
-        return obtainPublicKeyFromEncoded(data);
+    /**
+     * 根据字符串BASE64编码的私钥生成RSA私钥
+     */
+    public static RSAPrivateKey generatePrivateKey(String base64) {
+        base64 = ignoreIdentifier(base64);
+        byte[] data = Base64Utils.decode(base64.getBytes());
+        if (data == null) {
+            return null;
+        }
+        return generatePrivateKey(data);
     }
 
-    public static RSAPrivateKey obtainPrivateKeyFromBase64(String privateKeyStr) {
-        privateKeyStr = ignoreKeyStringTag(privateKeyStr);
-        byte[] data = Base64Utils.decode(privateKeyStr, CHARSET);
-        return obtainPrivateKeyFromEncoded(data);
-    }
-
-    private static String ignoreKeyStringTag(String keyStr) {
+    private static String ignoreIdentifier(String str) {
         StringBuilder sb = new StringBuilder();
-        String[] lines = keyStr.split("\n");
+        String[] lines = str.split("\n");
         for (String line : lines) {
-            //忽略秘钥串首尾的标识串
+            //忽略证书及秘钥串首尾的标识符
             if (line.charAt(0) != '-') {
                 sb.append(line).append('\n');
             }
@@ -457,29 +325,14 @@ public final class RSAUtils {
         return sb.toString();
     }
 
-    public static RSAPublicKey obtainPublicKeyFromFile(File pemFile) {
-        try {
-            return obtainPublicKeyFromBase64(FileUtils.readText(pemFile));
-        } catch (Exception e) {
-            Logger.print(e);
-            return null;
-        }
-    }
-
-    public static RSAPrivateKey obtainPrivateKeyFromFile(File pemFile) {
-        try {
-            return obtainPrivateKeyFromBase64(FileUtils.readText(pemFile));
-        } catch (Exception e) {
-            Logger.print(e);
-            return null;
-        }
-    }
-
-    public static RSAPublicKey obtainPublicKeyFromModulus(String modulus, String publicExponent) {
+    /**
+     * 根据模数及公钥指数生成RSA公钥
+     */
+    public static RSAPublicKey generatePublicKey(String modulus, String publicExponent) {
         try {
             BigInteger bigIntModulus = new BigInteger(modulus);
-            BigInteger bigIntPrivateExponent = new BigInteger(publicExponent);
-            RSAPublicKeySpec keySpec = new RSAPublicKeySpec(bigIntModulus, bigIntPrivateExponent);
+            BigInteger bigIntExponent = new BigInteger(publicExponent);
+            RSAPublicKeySpec keySpec = new RSAPublicKeySpec(bigIntModulus, bigIntExponent);
             KeyFactory keyFactory = KeyFactory.getInstance("RSA");
             return (RSAPublicKey) keyFactory.generatePublic(keySpec);
         } catch (Exception e) {
@@ -488,11 +341,14 @@ public final class RSAUtils {
         }
     }
 
-    public static RSAPrivateKey obtainPrivateKeyFromModulus(String modulus, String privateExponent) {
+    /**
+     * 根据模数及私钥指数生成RSA私钥
+     */
+    public static RSAPrivateKey generatePrivateKey(String modulus, String privateExponent) {
         try {
             BigInteger bigIntModulus = new BigInteger(modulus);
-            BigInteger bigIntPrivateExponent = new BigInteger(privateExponent);
-            RSAPublicKeySpec keySpec = new RSAPublicKeySpec(bigIntModulus, bigIntPrivateExponent);
+            BigInteger bigIntExponent = new BigInteger(privateExponent);
+            RSAPublicKeySpec keySpec = new RSAPublicKeySpec(bigIntModulus, bigIntExponent);
             KeyFactory keyFactory = KeyFactory.getInstance("RSA");
             return (RSAPrivateKey) keyFactory.generatePrivate(keySpec);
         } catch (Exception e) {
@@ -501,35 +357,72 @@ public final class RSAUtils {
         }
     }
 
-    public static boolean savePublicKeyToFile(File file, RSAPublicKey publicKey) {
-        return FileUtils.writeText(file, encodePublicKeyToString(publicKey, false));
+    /**
+     * 将RSA公钥编码为BASE64字符串
+     */
+    public static String encodePublicKeyToString(RSAPublicKey publicKey) {
+        return encodePublicKeyToString(publicKey, false);
     }
 
-    public static boolean savePrivateKeyToFile(File file, RSAPrivateKey privateKey) {
-        return FileUtils.writeText(file, encodePrivateKeyToString(privateKey, false));
+    /**
+     * 将RSA公钥编码为BASE64字符串
+     */
+    public static String encodePublicKeyToString(RSAPublicKey publicKey, boolean excludeIdentifier) {
+        String encode = Base64Utils.encodeToString(publicKey.getEncoded());
+        if (excludeIdentifier) {
+            return encode;
+        }
+        return PUBLIC_KEY_BEGIN + "\n" + encode + "\n" + PUBLIC_KEY_END;
     }
+
+    /**
+     * 将RSA私钥编码为BASE64字符串
+     */
+    public static String encodePrivateKeyToString(RSAPrivateKey privateKey) {
+        return encodePrivateKeyToString(privateKey, false);
+    }
+
+    /**
+     * 将RSA私钥编码为BASE64字符串
+     */
+    public static String encodePrivateKeyToString(RSAPrivateKey privateKey, boolean excludeIdentifier) {
+        String encode = Base64Utils.encodeToString(privateKey.getEncoded());
+        if (excludeIdentifier) {
+            return encode;
+        }
+        return PRIVATE_KEY_BEGIN + "\n" + encode + "\n" + PRIVATE_KEY_END;
+    }
+
 
     public static void printPublicKeyInfo(RSAPublicKey publicKey) {
         StringBuilder sb = new StringBuilder();
-        sb.append("RSA Public Key Info:").append("\n");
-        sb.append("Format=").append(publicKey.getFormat()).append("\n");
-        sb.append("Algorithm=").append(publicKey.getAlgorithm()).append("\n");
-        sb.append("Modulus.length=").append(publicKey.getModulus().bitLength()).append("\n");
-        sb.append("Modulus=").append(publicKey.getModulus().toString()).append("\n");
-        sb.append("PublicExponent.length=").append(publicKey.getPublicExponent().bitLength()).append("\n");
-        sb.append("PublicExponent=").append(publicKey.getPublicExponent().toString()).append("\n");
+        try {
+            sb.append("RSA Public Key Info:").append("\n");
+            sb.append("Format=").append(publicKey.getFormat()).append("\n");
+            sb.append("Algorithm=").append(publicKey.getAlgorithm()).append("\n");
+            sb.append("Modulus.length=").append(publicKey.getModulus().bitLength()).append("\n");
+            sb.append("Modulus=").append(publicKey.getModulus().toString()).append("\n");
+            sb.append("PublicExponent.length=").append(publicKey.getPublicExponent().bitLength()).append("\n");
+            sb.append("PublicExponent=").append(publicKey.getPublicExponent().toString()).append("\n");
+        } catch (Exception e) {
+            sb.append(e);
+        }
         Logger.print(sb);
     }
 
     public static void printPrivateKeyInfo(RSAPrivateKey privateKey) {
         StringBuilder sb = new StringBuilder();
-        sb.append("RSA Private Key Info:").append("\n");
-        sb.append("Format=").append(privateKey.getFormat()).append("\n");
-        sb.append("Algorithm=").append(privateKey.getAlgorithm()).append("\n");
-        sb.append("Modulus.length=").append(privateKey.getModulus().bitLength()).append("\n");
-        sb.append("Modulus=").append(privateKey.getModulus().toString()).append("\n");
-        sb.append("PrivateExponent.length=").append(privateKey.getPrivateExponent().bitLength()).append("\n");
-        sb.append("PrivatecExponent=").append(privateKey.getPrivateExponent().toString()).append("\n");
+        try {
+            sb.append("RSA Private Key Info:").append("\n");
+            sb.append("Format=").append(privateKey.getFormat()).append("\n");
+            sb.append("Algorithm=").append(privateKey.getAlgorithm()).append("\n");
+            sb.append("Modulus.length=").append(privateKey.getModulus().bitLength()).append("\n");
+            sb.append("Modulus=").append(privateKey.getModulus().toString()).append("\n");
+            sb.append("PrivateExponent.length=").append(privateKey.getPrivateExponent().bitLength()).append("\n");
+            sb.append("PrivateExponent=").append(privateKey.getPrivateExponent().toString()).append("\n");
+        } catch (Exception e) {
+            sb.append(e);
+        }
         Logger.print(sb);
     }
 

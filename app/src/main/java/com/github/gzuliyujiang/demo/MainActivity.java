@@ -14,6 +14,7 @@ package com.github.gzuliyujiang.demo;
 
 import android.Manifest;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
@@ -30,15 +31,16 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.github.gzuliyujiang.logger.Logger;
 import com.github.gzuliyujiang.rsautils.Base64Utils;
+import com.github.gzuliyujiang.rsautils.RC4Utils;
 import com.github.gzuliyujiang.rsautils.RSAUtils;
+import com.yanzhenjie.permission.Action;
 import com.yanzhenjie.permission.AndPermission;
 
-import java.io.File;
 import java.nio.charset.Charset;
 import java.security.KeyPair;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
-import java.util.Objects;
+import java.util.List;
 
 @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN)
 public class MainActivity extends AppCompatActivity {
@@ -65,9 +67,11 @@ public class MainActivity extends AppCompatActivity {
             "Ogclq5CHjFTyyAUcYbrbAFCe+tXsDdes3aGkhiQak+HWsze5W/TZ/VLO9VCMRwjHP6UJY0hT669R\n" +
             "g9r1HxSbtfxwc6T6zo8ASwvNEwLgYEASe1JZ9pBbXQjBVc2KvRW1kn6P5QIDAQAB\n" +
             "-----END RSA PUBLIC KEY-----";
+    @SuppressWarnings("CharsetObjectCanBeUsed")
+    private static final Charset CHARSET = Charset.forName("UTF-8");
     private EditText edtPlainText;
-    private TextView tvEncryptedText;
-    private static String saveDir;
+    private TextView tvEncryptedData;
+    private TextView tvEncryptedPassword;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -75,18 +79,21 @@ public class MainActivity extends AppCompatActivity {
         checkAllPermissions(this);
         setContentView(R.layout.activity_main);
         edtPlainText = findViewById(R.id.edtPlainText);
-        tvEncryptedText = findViewById(R.id.tvEncryptedText);
-        saveDir = Objects.requireNonNull(getExternalFilesDir("rsa")).getAbsolutePath();
+        tvEncryptedData = findViewById(R.id.tvEncryptedData);
+        tvEncryptedPassword = findViewById(R.id.tvEncryptedPassword);
     }
 
     private void checkAllPermissions(final Context context) {
         AndPermission.with(context)
                 .permission(PERMISSIONS_All_NEED)
-                .onDenied(list -> {
-                    if (AndPermission.hasAlwaysDeniedPermission(context, PERMISSIONS_All_NEED)) {
-                        Toast.makeText(context, "部分功能被禁止，被禁止的功能将无法使用", Toast.LENGTH_SHORT).show();
-                        Logger.print("部分功能被禁止");
-                        showNormalDialog(MainActivity.this);
+                .onDenied(new Action() {
+                    @Override
+                    public void onAction(List<String> list) {
+                        if (AndPermission.hasAlwaysDeniedPermission(context, PERMISSIONS_All_NEED)) {
+                            Toast.makeText(context, "部分功能被禁止，被禁止的功能将无法使用", Toast.LENGTH_SHORT).show();
+                            Logger.print("部分功能被禁止");
+                            MainActivity.this.showNormalDialog(MainActivity.this);
+                        }
                     }
                 }).start();
     }
@@ -97,39 +104,66 @@ public class MainActivity extends AppCompatActivity {
         normalDialog.setTitle("去申请权限");
         normalDialog.setMessage("部分权限被你禁止了，可能误操作，可能会影响部分功能，是否去要去重新设置？");
         normalDialog.setPositiveButton("是",
-                (dialog, which) -> getAppDetailSettingIntent(context));
+                new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        getAppDetailSettingIntent(context);
+                    }
+                });
         normalDialog.setNegativeButton("否",
-                (dialog, which) -> dialog.dismiss());
+                new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        dialog.dismiss();
+                    }
+                });
         normalDialog.show();
     }
 
-    public void onAndroidKeyStoreEncrypt(View view) {
-        String text = edtPlainText.getText().toString();
-        if (TextUtils.isEmpty(text)) {
+    public void onRSAAndRC4Encrypt(View view) {
+        String data = edtPlainText.getText().toString();
+        if (TextUtils.isEmpty(data)) {
             Toast.makeText(this, "请输入要加密的内容", Toast.LENGTH_SHORT).show();
             return;
         }
-        byte[] encryptedBytes = RSAUtils.encryptUseAKS(this, "liyujiang", text.getBytes());
-        if (encryptedBytes == null) {
+        String password = "123456";
+        Logger.print("明文密码：" + password);
+        String encryptedData = Base64Utils.encodeToString(RC4Utils.convert(data.getBytes(CHARSET), password));
+        Logger.print("RC4加密：" + encryptedData);
+        String encryptedPassword = RSAUtils.encrypt(password.getBytes(CHARSET), PUBLIC_KEY);
+        Logger.print("密文密码：" + encryptedPassword);
+        if (TextUtils.isEmpty(encryptedData) || TextUtils.isEmpty(encryptedPassword)) {
             Toast.makeText(this, "加密失败", Toast.LENGTH_SHORT).show();
             return;
         }
-        //noinspection CharsetObjectCanBeUsed
-        tvEncryptedText.setText(Base64Utils.encode(encryptedBytes, Charset.forName("UTF-8")));
+        tvEncryptedData.setText(encryptedData);
+        tvEncryptedPassword.setText(encryptedPassword);
     }
 
-    public void onAndroidKeyStoreDecrypt(View view) {
-        String text = tvEncryptedText.getText().toString();
-        if (TextUtils.isEmpty(text)) {
-            Toast.makeText(this, "还没有加密的文本", Toast.LENGTH_SHORT).show();
+    public void onRSAAndRC4Decrypt(View view) {
+        String encryptedData = tvEncryptedData.getText().toString();
+        Logger.print("RC4密文：" + encryptedData);
+        String encryptedPassword = tvEncryptedPassword.getText().toString();
+        Logger.print("密文密码：" + encryptedPassword);
+        if (TextUtils.isEmpty(encryptedData) || TextUtils.isEmpty(encryptedPassword)) {
+            Toast.makeText(this, "还没有加密过数据", Toast.LENGTH_SHORT).show();
             return;
         }
-        byte[] decryptedBytes = RSAUtils.decryptUseAKS(this, "liyujiang", Base64Utils.decode(text.getBytes()));
-        if (decryptedBytes == null) {
-            Toast.makeText(this, "解密失败", Toast.LENGTH_SHORT).show();
+        byte[] decryptedPassword = RSAUtils.decrypt(encryptedPassword, PRIVATE_KEY);
+        if (decryptedPassword == null) {
+            Toast.makeText(this, "密码解密失败", Toast.LENGTH_SHORT).show();
             return;
         }
-        Toast.makeText(this, new String(decryptedBytes), Toast.LENGTH_LONG).show();
+        String password = new String(decryptedPassword, CHARSET);
+        Logger.print("明文密码：" + password);
+        byte[] decryptedData = RC4Utils.convert(Base64Utils.decodeFromString(encryptedData), password);
+        if (decryptedData == null) {
+            Toast.makeText(this, "使用" + password + "解密失败", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        String data = new String(decryptedData, CHARSET);
+        Logger.print("RC4解密：" + data);
+        Toast.makeText(this, data, Toast.LENGTH_LONG).show();
     }
 
     private static void getAppDetailSettingIntent(Context context) {
@@ -141,21 +175,21 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void decodeKeyAndGenerateLicenseKey(View view) {
-        RSAPublicKey publicKey = RSAUtils.obtainPublicKeyFromBase64(PUBLIC_KEY);
+        RSAPublicKey publicKey = RSAUtils.generatePublicKey(PUBLIC_KEY);
         RSAUtils.printPublicKeyInfo(publicKey);
-        RSAPrivateKey privateKey = RSAUtils.obtainPrivateKeyFromBase64(PRIVATE_KEY);
+        RSAPrivateKey privateKey = RSAUtils.generatePrivateKey(PRIVATE_KEY);
         RSAUtils.printPrivateKeyInfo(privateKey);
-        final String registerCode = "DDDSSFSSSSFFFF";
+        final String registerCode = "d0013db0-bc78-4c15-94d9-29e868edbd1b";
         Logger.print("registerCode=" + registerCode);
         String LICENSE_KEY_BEGIN = "-----BEGIN LICENSE KEY-----";
         String LICENSE_KEY_END = "-----END LICENSE KEY-----";
-        String sign = RSAUtils.sign(registerCode.getBytes(), privateKey);
-        String licenseKey = LICENSE_KEY_BEGIN + "\n" + sign + "\n" + LICENSE_KEY_END;
+        byte[] sign = RSAUtils.sign(registerCode.getBytes(), privateKey);
+        String licenseKey = LICENSE_KEY_BEGIN + "\n" + Base64Utils.encodeToString(sign) + "\n" + LICENSE_KEY_END;
         Logger.print("licenseKey: \n" + licenseKey);
         boolean result = licenseKey.equals("-----BEGIN LICENSE KEY-----\n" +
-                "NF2i/7a/VhBkFrDgckLNq/F4YdB6s7JL2BNfoDe735vt1pQjHjkDZ7TB6VQClguRYoOIib1Nwb81\n" +
-                "xfsHtj1lRq3NxlvYcEJcmeWM2lCRYd8rf7G5czNQl4GrZtfLknPevvZYQkIZV2nwvzoEYD4DkOYE\n" +
-                "abni0mqwIioVuf9jEnI=\n" +
+                "HIgNAP/wjy4vbUQK9hhhtrlkNtjS9/RuNLbHPih3ZO4uf5sE7UfFoNXlmIDHnvxHVuRPE1GS3Uz3\n" +
+                "uhHxpkVuJEn6/b4Rg+XUCxbLyYpmzfVhu6JCebChl8taq5uFvfZPhbXiAPVIVL68BYmSYgsoF5u/\n" +
+                "AcGXpl5n3Vr4BBwumQg=\n" +
                 "-----END LICENSE KEY-----");
         Logger.print("licenseKey equals=" + result);
         result = RSAUtils.verify(registerCode.getBytes(), publicKey, sign);
@@ -163,14 +197,14 @@ public class MainActivity extends AppCompatActivity {
         Toast.makeText(this, "LICENSE KEY已生成", Toast.LENGTH_SHORT).show();
     }
 
-    public void generatePemFile(View view) {
-        KeyPair keyPair = RSAUtils.generateKeyPairUseRandom();
+    public void generateKeyPair(View view) {
+        KeyPair keyPair = RSAUtils.generateKeyPair();
         assert keyPair != null;
         RSAPublicKey publicKey = (RSAPublicKey) keyPair.getPublic();
         RSAPrivateKey privateKey = (RSAPrivateKey) keyPair.getPrivate();
-        RSAUtils.savePublicKeyToFile(new File(saveDir, "public.key"), publicKey);
-        RSAUtils.savePrivateKeyToFile(new File(saveDir, "private.key"), privateKey);
-        Toast.makeText(this, "PEM文件已生成", Toast.LENGTH_SHORT).show();
+        RSAUtils.printPublicKeyInfo(publicKey);
+        RSAUtils.printPrivateKeyInfo(privateKey);
+        Toast.makeText(this, "密钥对已生成", Toast.LENGTH_SHORT).show();
     }
 
 }

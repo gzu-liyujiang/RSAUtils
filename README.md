@@ -8,10 +8,11 @@
 
 AndroidKeyStore本地安全存储，Java及Android平台通用的“RSA+AES”算法工具类及其例子。 
 
-- 敏感信息本地存储及网络传输。
-- RSA&AES加密，RSA&AES解密。
-- 公钥加密，私钥解密。
-- 私钥签名，公钥验证。
+- BASE64编码，BASE64解码。
+- SHA1、MD5、CRC32等校验值。
+- AES加密，AES解密。
+- RSA公钥加密，RSA私钥解密。
+- RSA私钥签名，RSA公钥验证。
 - 软件激活码/授权码。
 
 ### 远程依赖
@@ -24,32 +25,62 @@ allprojects {
 }
 
 dependencies {
-    implementation 'com.github.gzu-liyujiang:RSAUtils:2020.6.1'
+    implementation 'com.github.gzu-liyujiang:RSAUtils:2020.6.14'
 }
 ```
 
 ### 封装的方法
 
+#### Base64Utils
+
 ```text
-generateKeyPairUseAKS
-generateKeyPairUseJKS
-generateKeyPairUseRandom
-encryptUseAKS
-decryptUseAKS
-encodePublicKeyToString
-encodePrivateKeyToString
-encryptUsePK
-decryptUsePK
+isBase64
+encodeToString
+encodeNoThrown
+encode
+decodeNoThrown
+decode
+```
+
+#### ChecksumUtils
+
+```text
+sha1
+sha256
+sha512
+md5
+crc32
+```
+
+#### AESUtils
+
+```text
+encrypt
+encryptToBase64
+decrypt
+decryptFromBase64
+```
+
+#### RSAUtils
+
+```text
+说明：RSA只支持小数据加密，对于大批量数据加密，不建议对数据分段加密，强烈建议使用以下方案：
+第一步：客户端选择合适的对称加密算法（如AES、RC4、XXTEA），该算法须服务端也支持；
+第二步：客户端随机生成一个对称加密算法所用的密码，使用该密码加密数据，再使用RSA公钥加密该密码；
+第三步：服务端使用RSA私钥解密出对称加密算法所用的密码，再使用该密码及同样的对称加密算法解密数据。
+推荐查阅这篇文章帮助理解：https://www.cnblogs.com/JeffreySun/archive/2010/06/24/1627247.html
+```
+```text
+encrypt
+decrypt
 sign
 verify
-obtainPublicKeyFromEncoded
-obtainPrivateKeyFromEncoded
-obtainPublicKeyFromFile
-obtainPrivateKeyFromFile
-obtainPublicKeyFromModulus
-obtainPrivateKeyFromModulus
-savePublicKeyToFile
-savePrivateKeyToFile
+generateKeyPair
+generateCertificate
+generatePublicKey
+generatePrivateKey
+encodePublicKeyToString
+encodePrivateKeyToString
 printPublicKeyInfo
 printPrivateKeyInfo
 ```

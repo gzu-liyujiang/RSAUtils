@@ -12,6 +12,8 @@
  */
 package com.github.gzuliyujiang.rsautils;
 
+import com.github.gzuliyujiang.logger.Logger;
+
 import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -45,7 +47,25 @@ public final class Base64Utils {
         return Pattern.matches(base64Pattern, str);
     }
 
-    public static String encode(byte[] data, Charset charset) throws IllegalArgumentException {
+    /**
+     * 将数据进行Base64编码，并转为可展示的ASCII字符串.
+     * 编码失败不会抛出异常，编码失败会返回NULL.
+     */
+    public static String encodeToString(byte[] data) {
+        try {
+            // 使用GBK及UTF-8字符集都是兼容ASCII字符集的
+            //noinspection CharsetObjectCanBeUsed
+            return new String(encode(data), Charset.forName("US-ASCII")).trim();
+        } catch (Throwable e) {
+            Logger.print(e);
+            return null;
+        }
+    }
+
+    /**
+     * 将数据进行BASE64编码，编码失败会抛出异常
+     */
+    public static byte[] encode(byte[] data) throws IllegalArgumentException {
         if (data == null || data.length == 0) {
             throw new IllegalArgumentException("data is null");
         }
@@ -75,7 +95,7 @@ public final class Base64Utils {
         }
 
         // Account for the newlines, if any.
-        if (encoder.do_newline && len > 0) {
+        if (encoder.do_newline) {
             output_len += (((len - 1) / (3 * Encoder.LINE_GROUPS)) + 1) *
                     (encoder.do_cr ? 2 : 1);
         }
@@ -83,16 +103,25 @@ public final class Base64Utils {
         encoder.output = new byte[output_len];
         encoder.process(data, 0, len, true);
 
-        return new String(encoder.output, charset).trim();
+        return encoder.output;
     }
 
-    public static byte[] decode(String data, Charset charset) throws IllegalArgumentException {
-        if (data == null || data.length() == 0) {
-            throw new IllegalArgumentException("data is null or empty");
+    /**
+     * 将BASE64编码的字符串解码.
+     * 解码失败不会抛出异常，解码失败会返回NULL.
+     */
+    public static byte[] decodeFromString(String data) {
+        try {
+            return decode(data.trim().getBytes());
+        } catch (Throwable e) {
+            Logger.print(e);
+            return null;
         }
-        return decode(data.getBytes(charset));
     }
 
+    /**
+     * 将BASE64编码的解码，解码失败会抛出异常
+     */
     public static byte[] decode(byte[] data) throws IllegalArgumentException {
         if (data == null || data.length == 0) {
             throw new IllegalArgumentException("data is null");

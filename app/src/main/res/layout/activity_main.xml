@@ -14,24 +14,31 @@
         android:hint="输入要加密的文本" />
 
     <TextView
-        android:id="@+id/tvEncryptedText"
+        android:id="@+id/tvEncryptedData"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_margin="10dp"
-        android:hint="这里是已加密的文本" />
+        android:hint="这里是已加密的数据" />
+
+    <TextView
+        android:id="@+id/tvEncryptedPassword"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="10dp"
+        android:hint="这里是已加密的密码" />
 
     <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:onClick="onAndroidKeyStoreEncrypt"
-        android:text="使用AndroidKeyStore加密"
+        android:onClick="onRSAAndRC4Encrypt"
+        android:text="使用RSA+RC4+BASE64加密"
         tools:ignore="HardcodedText" />
 
     <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:onClick="onAndroidKeyStoreDecrypt"
-        android:text="使用AndroidKeyStore解密"
+        android:onClick="onRSAAndRC4Decrypt"
+        android:text="使用RSA+RC4+BASE64解密"
         tools:ignore="HardcodedText" />
 
     <Button
@@ -44,8 +51,8 @@
     <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:onClick="generatePemFile"
-        android:text="随机生成一对公钥/私钥的PEM文件"
+        android:onClick="generateKeyPair"
+        android:text="随机生成一对公钥/私钥"
         tools:ignore="HardcodedText" />
 
 </LinearLayout>
