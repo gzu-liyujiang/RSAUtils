@@ -44,6 +44,20 @@
     <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:onClick="onRSAAndAESEncrypt"
+        android:text="使用RSA+AES+BASE64加密"
+        tools:ignore="HardcodedText" />
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:onClick="onRSAAndAESDecrypt"
+        android:text="使用RSA+AES+BASE64解密"
+        tools:ignore="HardcodedText" />
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         android:onClick="decodeKeyAndGenerateLicenseKey"
         android:text="使用现成的公私钥生成授权码"
         tools:ignore="HardcodedText" />

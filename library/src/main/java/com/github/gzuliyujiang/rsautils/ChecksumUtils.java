@@ -73,6 +73,9 @@ public final class ChecksumUtils {
      * 支持的算法见 https://docs.oracle.com/javase/8/docs/technotes/guides/security/StandardNames.html#MessageDigest
      */
     public static String calculate(byte[] data, String algorithm) {
+        if (data == null || data.length == 0) {
+            return "";
+        }
         try {
             byte[] bytes = MessageDigest.getInstance(algorithm).digest(data);
 //            char chars[] = new char[bytes.length * 2];

@@ -12,12 +12,11 @@
  */
 package com.github.gzuliyujiang.demo;
 
-import android.Manifest;
+import android.app.Activity;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.View;
@@ -25,16 +24,19 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.github.gzuliyujiang.logger.Logger;
+import com.github.gzuliyujiang.rsautils.AESUtils;
 import com.github.gzuliyujiang.rsautils.Base64Utils;
 import com.github.gzuliyujiang.rsautils.RC4Utils;
 import com.github.gzuliyujiang.rsautils.RSAUtils;
 import com.yanzhenjie.permission.Action;
 import com.yanzhenjie.permission.AndPermission;
+import com.yanzhenjie.permission.Rationale;
+import com.yanzhenjie.permission.RequestExecutor;
+import com.yanzhenjie.permission.runtime.Permission;
 
 import java.nio.charset.Charset;
 import java.security.KeyPair;
@@ -42,12 +44,7 @@ import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 import java.util.List;
 
-@RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN)
 public class MainActivity extends AppCompatActivity {
-    private static final String[] PERMISSIONS_All_NEED = {
-            Manifest.permission.READ_EXTERNAL_STORAGE,
-            Manifest.permission.WRITE_EXTERNAL_STORAGE,
-    };
     private static final String PRIVATE_KEY = "-----BEGIN RSA PRIVATE KEY-----\n" +
             "MIICdwIBADANBgkqhkiG9w0BAQEFAASCAmEwggJdAgEAAoGBAJV1jJ6vjuSlsj8rwKIF0NJAonad\n" +
             "E0PIAQtDuo86ByWrkIeMVPLIBRxhutsAUJ761ewN16zdoaSGJBqT4dazN7lb9Nn9Us71UIxHCMc/\n" +
@@ -83,41 +80,70 @@ public class MainActivity extends AppCompatActivity {
         tvEncryptedPassword = findViewById(R.id.tvEncryptedPassword);
     }
 
-    private void checkAllPermissions(final Context context) {
-        AndPermission.with(context)
-                .permission(PERMISSIONS_All_NEED)
-                .onDenied(new Action() {
+    private void checkAllPermissions(final Activity activity) {
+        AndPermission.with(activity)
+                .runtime()
+                .permission(Permission.READ_EXTERNAL_STORAGE, Permission.WRITE_EXTERNAL_STORAGE)
+                .rationale(new Rationale<List<String>>() {
                     @Override
-                    public void onAction(List<String> list) {
-                        if (AndPermission.hasAlwaysDeniedPermission(context, PERMISSIONS_All_NEED)) {
-                            Toast.makeText(context, "部分功能被禁止，被禁止的功能将无法使用", Toast.LENGTH_SHORT).show();
-                            Logger.print("部分功能被禁止");
-                            MainActivity.this.showNormalDialog(MainActivity.this);
-                        }
+                    public void showRationale(Context context, List<String> data, RequestExecutor executor) {
+                        executor.execute();
                     }
-                }).start();
+                })
+                .onGranted(new Action<List<String>>() {
+                    @Override
+                    public void onAction(List<String> permissions) {
+                        // Storage permission are allowed.
+                    }
+                })
+                .onDenied(new Action<List<String>>() {
+                    @Override
+                    public void onAction(List<String> permissions) {
+                        // Storage permission are not allowed.
+                        showNormalDialog(activity);
+                    }
+                })
+                .start();
     }
 
-    private void showNormalDialog(final Context context) {
-        final AlertDialog.Builder normalDialog =
-                new AlertDialog.Builder(context);
-        normalDialog.setTitle("去申请权限");
-        normalDialog.setMessage("部分权限被你禁止了，可能误操作，可能会影响部分功能，是否去要去重新设置？");
-        normalDialog.setPositiveButton("是",
+    private void showNormalDialog(final Activity activity) {
+        final AlertDialog.Builder builder =
+                new AlertDialog.Builder(activity);
+        builder.setTitle("去设置权限");
+        builder.setMessage("存储权限被你禁止了，会影响部分功能，是否去要去重新设置？");
+        builder.setPositiveButton("是",
                 new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
-                        getAppDetailSettingIntent(context);
+                        getAppDetailSetting();
                     }
                 });
-        normalDialog.setNegativeButton("否",
+        builder.setNegativeButton("否",
                 new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
                         dialog.dismiss();
                     }
                 });
-        normalDialog.show();
+        builder.show();
+    }
+
+    private void getAppDetailSetting() {
+        Intent intent = new Intent();
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        intent.setAction("android.settings.APPLICATION_DETAILS_SETTINGS");
+        intent.setData(Uri.fromParts("package", getApplication().getPackageName(), null));
+        startActivityForResult(intent, 999);
+    }
+
+    @Override
+    protected void onActivityResult(int reqCode, int resCode, Intent data) {
+        super.onActivityResult(reqCode, resCode, data);
+        if (reqCode == 999) {
+            if (!AndPermission.hasPermissions(this, Permission.Group.STORAGE)) {
+                Toast.makeText(this, "存储权限被禁止，被禁止的功能将无法使用", Toast.LENGTH_SHORT).show();
+            }
+        }
     }
 
     public void onRSAAndRC4Encrypt(View view) {
@@ -128,9 +154,9 @@ public class MainActivity extends AppCompatActivity {
         }
         String password = "123456";
         Logger.print("明文密码：" + password);
-        String encryptedData = Base64Utils.encodeToString(RC4Utils.convert(data.getBytes(CHARSET), password));
+        String encryptedData = RC4Utils.encryptToBase64(data.getBytes(CHARSET), password);
         Logger.print("RC4加密：" + encryptedData);
-        String encryptedPassword = RSAUtils.encrypt(password.getBytes(CHARSET), PUBLIC_KEY);
+        String encryptedPassword = RSAUtils.encryptToBase64(password.getBytes(CHARSET), RSAUtils.generatePublicKey(PUBLIC_KEY));
         Logger.print("密文密码：" + encryptedPassword);
         if (TextUtils.isEmpty(encryptedData) || TextUtils.isEmpty(encryptedPassword)) {
             Toast.makeText(this, "加密失败", Toast.LENGTH_SHORT).show();
@@ -149,14 +175,14 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(this, "还没有加密过数据", Toast.LENGTH_SHORT).show();
             return;
         }
-        byte[] decryptedPassword = RSAUtils.decrypt(encryptedPassword, PRIVATE_KEY);
+        byte[] decryptedPassword = RSAUtils.decryptFromBase64(encryptedPassword, RSAUtils.generatePrivateKey(PRIVATE_KEY));
         if (decryptedPassword == null) {
             Toast.makeText(this, "密码解密失败", Toast.LENGTH_SHORT).show();
             return;
         }
         String password = new String(decryptedPassword, CHARSET);
         Logger.print("明文密码：" + password);
-        byte[] decryptedData = RC4Utils.convert(Base64Utils.decodeFromString(encryptedData), password);
+        byte[] decryptedData = RC4Utils.decryptFromBase64(encryptedData, password);
         if (decryptedData == null) {
             Toast.makeText(this, "使用" + password + "解密失败", Toast.LENGTH_SHORT).show();
             return;
@@ -166,12 +192,50 @@ public class MainActivity extends AppCompatActivity {
         Toast.makeText(this, data, Toast.LENGTH_LONG).show();
     }
 
-    private static void getAppDetailSettingIntent(Context context) {
-        Intent intent = new Intent();
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        intent.setAction("android.settings.APPLICATION_DETAILS_SETTINGS");
-        intent.setData(Uri.fromParts("package", context.getPackageName(), null));
-        context.startActivity(intent);
+    public void onRSAAndAESEncrypt(View view) {
+        String data = edtPlainText.getText().toString();
+        if (TextUtils.isEmpty(data)) {
+            Toast.makeText(this, "请输入要加密的内容", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        String password = "123456";
+        Logger.print("明文密码：" + password);
+        String encryptedData = AESUtils.encryptToBase64(data.getBytes(CHARSET), password);
+        Logger.print("AES加密：" + encryptedData);
+        String encryptedPassword = RSAUtils.encryptToBase64(password.getBytes(CHARSET), RSAUtils.generatePublicKey(PUBLIC_KEY));
+        Logger.print("密文密码：" + encryptedPassword);
+        if (TextUtils.isEmpty(encryptedData) || TextUtils.isEmpty(encryptedPassword)) {
+            Toast.makeText(this, "加密失败", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        tvEncryptedData.setText(encryptedData);
+        tvEncryptedPassword.setText(encryptedPassword);
+    }
+
+    public void onRSAAndAESDecrypt(View view) {
+        String encryptedData = tvEncryptedData.getText().toString();
+        Logger.print("AES密文：" + encryptedData);
+        String encryptedPassword = tvEncryptedPassword.getText().toString();
+        Logger.print("密文密码：" + encryptedPassword);
+        if (TextUtils.isEmpty(encryptedData) || TextUtils.isEmpty(encryptedPassword)) {
+            Toast.makeText(this, "还没有加密过数据", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        byte[] decryptedPassword = RSAUtils.decryptFromBase64(encryptedPassword, RSAUtils.generatePrivateKey(PRIVATE_KEY));
+        if (decryptedPassword == null) {
+            Toast.makeText(this, "密码解密失败", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        String password = new String(decryptedPassword, CHARSET);
+        Logger.print("明文密码：" + password);
+        byte[] decryptedData = AESUtils.decryptFromBase64(encryptedData, password);
+        if (decryptedData == null) {
+            Toast.makeText(this, "使用" + password + "解密失败", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        String data = new String(decryptedData, CHARSET);
+        Logger.print("AES解密：" + data);
+        Toast.makeText(this, data, Toast.LENGTH_LONG).show();
     }
 
     public void decodeKeyAndGenerateLicenseKey(View view) {
@@ -183,7 +247,7 @@ public class MainActivity extends AppCompatActivity {
         Logger.print("registerCode=" + registerCode);
         String LICENSE_KEY_BEGIN = "-----BEGIN LICENSE KEY-----";
         String LICENSE_KEY_END = "-----END LICENSE KEY-----";
-        byte[] sign = RSAUtils.sign(registerCode.getBytes(), privateKey);
+        byte[] sign = RSAUtils.signature(registerCode.getBytes(), privateKey, "NONEwithRSA");
         String licenseKey = LICENSE_KEY_BEGIN + "\n" + Base64Utils.encodeToString(sign) + "\n" + LICENSE_KEY_END;
         Logger.print("licenseKey: \n" + licenseKey);
         boolean result = licenseKey.equals("-----BEGIN LICENSE KEY-----\n" +
@@ -192,7 +256,7 @@ public class MainActivity extends AppCompatActivity {
                 "AcGXpl5n3Vr4BBwumQg=\n" +
                 "-----END LICENSE KEY-----");
         Logger.print("licenseKey equals=" + result);
-        result = RSAUtils.verify(registerCode.getBytes(), publicKey, sign);
+        result = RSAUtils.verify(registerCode.getBytes(), publicKey, sign, "NONEwithRSA");
         Logger.print("verify result=" + result);
         Toast.makeText(this, "LICENSE KEY已生成", Toast.LENGTH_SHORT).show();
     }

@@ -54,7 +54,7 @@ public final class RSAUtils {
     private static final String PUBLIC_KEY_END = "-----END RSA PUBLIC KEY-----";
     private static final String PRIVATE_KEY_BEGIN = "-----BEGIN RSA PRIVATE KEY-----";
     private static final String PRIVATE_KEY_END = "-----END RSA PRIVATE KEY-----";
-    private static final String RSA_MODE = "RSA/ECB/PKCS1Padding";
+    private static final String TRANSFORMATION = "RSA/ECB/PKCS1Padding";
 
     private RSAUtils() {
         super();
@@ -68,84 +68,52 @@ public final class RSAUtils {
      * 第三步：服务端使用RSA私钥解密出对称加密算法所用的密码，再使用该密码及同样的对称加密算法解密数据。
      * 推荐查阅这篇文章帮助理解：https://www.cnblogs.com/JeffreySun/archive/2010/06/24/1627247.html
      */
-    public static String encrypt(byte[] plainSecretKey, RSAPublicKey publicKey) {
+    public static byte[] encrypt(byte[] plainSecretKey, RSAPublicKey publicKey) {
         if (plainSecretKey == null || plainSecretKey.length == 0) {
             Logger.print("plain SecretKey is empty");
             return null;
         }
         try {
-            Cipher cipher = Cipher.getInstance(RSA_MODE);
+            Cipher cipher = Cipher.getInstance(TRANSFORMATION);
             cipher.init(Cipher.ENCRYPT_MODE, publicKey);
-            byte[] encryptedData = cipher.doFinal(plainSecretKey);
-            return Base64Utils.encodeToString(encryptedData);
+            return cipher.doFinal(plainSecretKey);
         } catch (Exception e) {
             Logger.print(e);
             return null;
         }
     }
 
-    /**
-     * 使用RSA公钥加密对称加密算法所使用的明文密码
-     */
-    public static String encrypt(byte[] plainSecretKey, String publicKeyBase64) {
-        if (plainSecretKey == null || plainSecretKey.length == 0) {
-            Logger.print("plain SecretKey is empty");
-            return null;
-        }
-        RSAPublicKey publicKey = generatePublicKey(publicKeyBase64);
-        return encrypt(plainSecretKey, publicKey);
+    public static String encryptToBase64(byte[] plainSecretKey, RSAPublicKey publicKey) {
+        return Base64Utils.encodeToString(encrypt(plainSecretKey, publicKey));
     }
 
     /**
      * 使用RSA私钥解密对称加密算法所使用的密文密码
      */
-    public static byte[] decrypt(String encryptedSecretKey, RSAPrivateKey privateKey) {
-        if (encryptedSecretKey == null || encryptedSecretKey.length() == 0) {
+    public static byte[] decrypt(byte[] encryptedSecretKey, RSAPrivateKey privateKey) {
+        if (encryptedSecretKey == null || encryptedSecretKey.length == 0) {
             Logger.print("encrypted SecretKey is empty");
             return null;
         }
         try {
-            Cipher cipher = Cipher.getInstance(RSA_MODE);
+            Cipher cipher = Cipher.getInstance(TRANSFORMATION);
             cipher.init(Cipher.DECRYPT_MODE, privateKey);
-            return cipher.doFinal(Base64Utils.decodeFromString(encryptedSecretKey));
+            return cipher.doFinal(encryptedSecretKey);
         } catch (Exception e) {
             Logger.print(e);
             return null;
         }
     }
 
-    /**
-     * 使用RSA私钥解密对称加密算法所使用的密文密码
-     */
-    public static byte[] decrypt(String encryptedSecretKey, String privateKeyBase64) {
-        if (encryptedSecretKey == null || encryptedSecretKey.length() == 0) {
-            Logger.print("encrypted SecretKey is empty");
-            return null;
-        }
-        RSAPrivateKey privateKey = generatePrivateKey(privateKeyBase64);
-        return decrypt(encryptedSecretKey, privateKey);
+    public static byte[] decryptFromBase64(String base64, RSAPrivateKey privateKey) {
+        return decrypt(Base64Utils.decodeFromString(base64), privateKey);
     }
 
     /**
-     * 使用私钥对数据签名
+     * 使用私钥对数据签名。
+     * 支持的算法参见 https://docs.oracle.com/javase/8/docs/technotes/guides/security/StandardNames.html#Signature
      */
-    public static byte[] sign(byte[] data, String privateKeyBase64) {
-        if (data == null || data.length == 0) {
-            Logger.print("data is empty");
-            return null;
-        }
-        RSAPrivateKey privateKey = generatePrivateKey(privateKeyBase64);
-        if (privateKey == null) {
-            Logger.print("private key is null");
-            return null;
-        }
-        return sign(data, privateKey);
-    }
-
-    /**
-     * 使用私钥对数据签名
-     */
-    public static byte[] sign(byte[] data, RSAPrivateKey privateKey) {
+    public static byte[] signature(byte[] data, RSAPrivateKey privateKey, String algorithm) {
         if (data == null || data.length == 0) {
             Logger.print("data is empty");
             return null;
@@ -155,7 +123,7 @@ public final class RSAUtils {
             return null;
         }
         try {
-            Signature signature = Signature.getInstance("MD5withRSA");
+            Signature signature = Signature.getInstance(algorithm);
             signature.initSign(privateKey);
             signature.update(data);
             return signature.sign();
@@ -165,26 +133,18 @@ public final class RSAUtils {
         }
     }
 
-    /**
-     * 使用公钥验证数据签名
-     */
-    public static boolean verify(byte[] data, String publicKeyBase64, byte[] sign) {
-        if (data == null || data.length == 0) {
-            Logger.print("data is empty");
-            return false;
-        }
-        RSAPublicKey publicKey = generatePublicKey(publicKeyBase64);
-        if (publicKey == null) {
-            Logger.print("public key is null");
-            return false;
-        }
-        return verify(data, publicKey, sign);
+    public static String signatureMD5(byte[] data, RSAPrivateKey privateKey) {
+        return ChecksumUtils.md5(signature(data, privateKey, "MD5withRSA"));
+    }
+
+    public static String signatureSHA1(byte[] data, RSAPrivateKey privateKey) {
+        return ChecksumUtils.sha1(signature(data, privateKey, "SHA1withRSA"));
     }
 
     /**
      * 使用公钥验证数据签名
      */
-    public static boolean verify(byte[] data, RSAPublicKey publicKey, byte[] sign) {
+    public static boolean verify(byte[] data, RSAPublicKey publicKey, byte[] sign, String algorithm) {
         if (data == null || data.length == 0) {
             Logger.print("data is empty");
             return false;
@@ -194,7 +154,7 @@ public final class RSAUtils {
             return false;
         }
         try {
-            Signature signature = Signature.getInstance("MD5withRSA");
+            Signature signature = Signature.getInstance(algorithm);
             signature.initVerify(publicKey);
             signature.update(data);
             return signature.verify(sign);
@@ -202,6 +162,14 @@ public final class RSAUtils {
             Logger.print(e);
             return false;
         }
+    }
+
+    public static boolean verifyMD5(byte[] data, RSAPublicKey publicKey, String sign) {
+        return verify(data, publicKey, sign.getBytes(), "MD5withRSA");
+    }
+
+    public static boolean verifySHA1(byte[] data, RSAPublicKey publicKey, String sign) {
+        return verify(data, publicKey, sign.getBytes(), "SHA1withRSA");
     }
 
     /**
@@ -360,26 +328,12 @@ public final class RSAUtils {
     /**
      * 将RSA公钥编码为BASE64字符串
      */
-    public static String encodePublicKeyToString(RSAPublicKey publicKey) {
-        return encodePublicKeyToString(publicKey, false);
-    }
-
-    /**
-     * 将RSA公钥编码为BASE64字符串
-     */
     public static String encodePublicKeyToString(RSAPublicKey publicKey, boolean excludeIdentifier) {
         String encode = Base64Utils.encodeToString(publicKey.getEncoded());
         if (excludeIdentifier) {
             return encode;
         }
         return PUBLIC_KEY_BEGIN + "\n" + encode + "\n" + PUBLIC_KEY_END;
-    }
-
-    /**
-     * 将RSA私钥编码为BASE64字符串
-     */
-    public static String encodePrivateKeyToString(RSAPrivateKey privateKey) {
-        return encodePrivateKeyToString(privateKey, false);
     }
 
     /**

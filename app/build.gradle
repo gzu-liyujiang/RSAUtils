@@ -5,8 +5,8 @@ apply from: "${rootDir}/gradle/resguard.gradle"
 dependencies {
     implementation project(":library")
     implementation "androidx.appcompat:appcompat:$androidxCoreVersion"
-    implementation 'com.github.gzu-liyujiang:Logger:2020.06.11'
-    implementation 'com.yanzhenjie:permission:2.0.0-rc4'
+    implementation 'com.github.gzu-liyujiang:Logger:2020.06.14'
+    implementation 'com.yanzhenjie:permission:2.0.3'
 }
 
 android {

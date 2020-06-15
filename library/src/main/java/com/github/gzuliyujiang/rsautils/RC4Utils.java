@@ -12,6 +12,8 @@
  */
 package com.github.gzuliyujiang.rsautils;
 
+import com.github.gzuliyujiang.logger.Logger;
+
 /**
  * RC4加解密
  * 在线工具：http://tool.chacuo.net/cryptrc4
@@ -21,18 +23,42 @@ package com.github.gzuliyujiang.rsautils;
 public class RC4Utils {
 
     /**
-     * RC4加解密，会自动识别传入的是密文还是明文
+     * RC4加密，加密失败将返回空串。
      */
-    public static byte[] convert(byte[] data, String secretKey) {
+    public static String encryptToBase64(byte[] data, String secretKey) {
+        try {
+            return Base64Utils.encodeToString(convert(data, secretKey));
+        } catch (Throwable e) {
+            Logger.print(e);
+        }
+        return "";
+    }
+
+    /**
+     * RC4解密，解密失败将返回NULL。
+     */
+    public static byte[] decryptFromBase64(String base64, String secretKey) {
+        try {
+            return convert(Base64Utils.decodeFromString(base64), secretKey);
+        } catch (Throwable e) {
+            Logger.print(e);
+        }
+        return null;
+    }
+
+    /**
+     * RC4加解密，会自动识别传入的是密文还是明文。加解密失败将抛异常。
+     */
+    public static byte[] convert(byte[] data, String secretKey) throws IllegalArgumentException {
         if (data == null || data.length == 0) {
-            return new byte[0];
+            throw new IllegalArgumentException("data cannot be empty");
         }
         if (secretKey == null || secretKey.trim().length() == 0) {
             throw new IllegalArgumentException("Key cannot be empty");
         }
         //初始化密钥
         byte[] bkey = secretKey.getBytes();
-        if (bkey.length > 256) {
+        if (bkey.length == 0 || bkey.length > 256) {
             throw new IllegalArgumentException("Key length must 1-256");
         }
         byte[] key = new byte[256];
@@ -41,9 +67,7 @@ public class RC4Utils {
         }
         int index1 = 0;
         int index2 = 0;
-        if (bkey.length == 0) {
-            return null;
-        }
+
         for (int i = 0; i < 256; i++) {
             index2 = ((bkey[index1] & 0xff) + (key[i] & 0xff) + index2) & 0xff;
             byte tmp = key[i];
