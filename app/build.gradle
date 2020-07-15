@@ -5,7 +5,7 @@ apply from: "${rootDir}/gradle/resguard.gradle"
 dependencies {
     implementation project(":library")
     implementation "androidx.appcompat:appcompat:$androidxCoreVersion"
-    implementation 'com.github.gzu-liyujiang:Logger:2020.06.14'
+    implementation 'com.github.gzu-liyujiang:Logger:1.1.0'
     implementation 'com.yanzhenjie:permission:2.0.3'
 }
 
@@ -13,20 +13,19 @@ android {
 
     splits {
         abi {
-            enable false
+            enable true
             reset()
             //支持的CPU架构：armeabi、armeabi-v7a、arm64-v8a、x86、x86_64、mips、mips64
             //目前主流手机都支持armeabi-v7a，armeabi已过时，arm64-v8a是未来的主流，电脑上的模拟器支持x86，mips基本不用于手机
             include 'armeabi-v7a', 'x86'
-            universalApk true
+            universalApk false
         }
     }
 
     defaultConfig {
         multiDexEnabled false
-        applicationId appPackageName
         //按不同维度打包，必须添加，不添加编译不通过，后面的数值任何字符串都可以
-        flavorDimensions "channel"
+        flavorDimensions "MODE", "CHANNEL"
         signingConfigs {
             //直接使用真实的密钥库文件，避免微信、高德地图等第三方SDK校验失败
             releaseConfig {
@@ -65,19 +64,45 @@ android {
                     keyAlias signingKeyAlias
                     keyPassword signingKeyPassword
                     v1SigningEnabled true
+                    // 注：直接在IDE里运行APP，启用V2签名的话生成的APK里可能不会有签名信息的？
                     v2SigningEnabled true
                 }
             }
         }
+        // 修改 AndroidManifest.xml 里的变量，占位值无法覆盖的坑可参阅 https://www.jianshu.com/p/1d5271c2c366
         manifestPlaceholders = [
-                MY_CHANNEL: "developer-default",
+                MY_CHANNEL: "unknown",
         ]
     }
 
-    // 打包纬度，会按纬度名称字母顺序执行
+    // 打包维度列表，会按维度名字母顺序执行，最终发布的具体渠道包的生成可以借助360加固等工具修改
     productFlavors {
+        // 开发模式/测试环境
         developer {
-            dimension "channel"
+            dimension "MODE"
+            // 环境信息
+            buildConfigField "String", "ENVIRONMENT", '"dev"'
+            // 修改 AndroidManifest.xml 里的变量
+            manifestPlaceholders = [
+                    MY_CHANNEL: "developer",
+            ]
+        }
+        // 发布模式/正式环境
+        publisher {
+            dimension "MODE"
+            // 环境信息
+            buildConfigField "String", "ENVIRONMENT", '"prod"'
+            // 修改 AndroidManifest.xml 里的变量
+            manifestPlaceholders = [
+                    MY_CHANNEL: "publisher",
+            ]
+        }
+        // 官方发布渠道
+        official {
+            dimension "CHANNEL"
+            manifestPlaceholders = [
+                    MY_CHANNEL: "official",
+            ]
         }
     }
 
@@ -113,7 +138,7 @@ android {
 println "********** product flavors **********"
 android.productFlavors.all { flavor ->
     String channelName = flavor.name
-    println "channel name is $channelName"
+    println "flavor name is $channelName"
     //替换AndroidManifest.xml中的默认值
     flavor.manifestPlaceholders = [
             MY_CHANNEL: channelName,
@@ -121,18 +146,17 @@ android.productFlavors.all { flavor ->
 }
 
 //APK重命名
+println "********** apk outputs **********"
 android.applicationVariants.all { variant ->
-    println "\n********** ${variant.buildType.name} apk outputs **********"
     variant.outputs.all {
         if (variant.buildType.name == 'debug') {
             //debug版本不重定义输出目录，也不重命名
-            println "outputFile=$outputFile"
             return
         }
         if (outputFileName != null && outputFileName.endsWith(".apk")) {
-            def versionCode = android.defaultConfig.versionCode
-            def versionName = android.defaultConfig.versionName
-            String fileName = "${outputFile.name.replace('-release.apk', '')}-v${versionName}-built${versionCode}.apk"
+            def versionName = rootProject.getGitLatestTag();
+            def date = new Date().format("yyyyMMddHHmm", TimeZone.getTimeZone("GMT+08:00"))
+            String fileName = "${outputFile.name.replace('-release.apk', '')}-v${versionName}-${date}.apk"
             //这里只能用相对路径，不然报错
             outputFileName = new File(fileName)
             println "outputFile=$outputFile"

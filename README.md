@@ -1,10 +1,9 @@
 # RSAUtils
 
-[![API 17+](https://img.shields.io/badge/API-17%2B-green.svg)](https://github.com/gzu-liyujiang/RSAUtils)
-[![bintray](https://api.bintray.com/packages/gzu-liyujiang/maven/RSAUtils/images/download.svg) ](https://bintray.com/gzu-liyujiang/maven/RSAUtils/_latestVersion)
+![Release APK](https://github.com/gzu-liyujiang/RSAUtils/workflows/Release%20APK/badge.svg)
+![Gradle Package](https://github.com/gzu-liyujiang/RSAUtils/workflows/Gradle%20Package/badge.svg)
 [![jitpack](https://jitpack.io/v/gzu-liyujiang/RSAUtils.svg)](https://jitpack.io/#gzu-liyujiang/RSAUtils)
-[![travis-ci](https://travis-ci.org/gzu-liyujiang/RSAUtils.svg?branch=master)](https://travis-ci.org/gzu-liyujiang/RSAUtils)
-[![MulanPSL](https://img.shields.io/badge/license-MulanPSL-blue.svg)](http://license.coscl.org.cn/MulanPSL)
+
 
 RSA+RC4/AES+BASE64加密解密。Java及Android平台通用的RSA算法工具类及其例子（敏感信息加密传输、私钥签名&公钥验签、公钥加密&私钥解密、软件注册码/授权码）。
 
@@ -16,6 +15,7 @@ RSA+RC4/AES+BASE64加密解密。Java及Android平台通用的RSA算法工具类
 - RSA私钥签名，RSA公钥验证。
 - 软件注册码/授权码。
 
+
 ### 远程依赖
 
 ```groovy
@@ -26,7 +26,7 @@ allprojects {
 }
 
 dependencies {
-    implementation 'com.github.gzu-liyujiang:RSAUtils:2020.6.15'
+    implementation 'com.github.gzu-liyujiang:RSAUtils:2.0.0'
 }
 ```
 
@@ -37,15 +37,15 @@ dependencies {
 ```text
 isBase64
 encodeToString
-encodeNoThrown
 encode
-decodeNoThrown
+decodeFromString
 decode
 ```
 
 #### ChecksumUtils
 
 ```text
+calculate
 sha1
 sha256
 sha512
@@ -64,9 +64,10 @@ decryptFromBase64
 #### AESUtils
 
 ```text
-convert
 encryptToBase64
+encrypt
 decryptFromBase64
+decrypt
 ```
 
 #### RSAUtils
@@ -99,7 +100,7 @@ printPublicKeyInfo
 printPrivateKeyInfo
 ```
 
-### 示例日志
+### 示例
 
 ```java
     private static final String PRIVATE_KEY = "-----BEGIN RSA PRIVATE KEY-----\n" +
@@ -234,7 +235,7 @@ W/liyujiang: RSA Private Key Info:
 ```text
 Copyright (c) 2019-2020 gzu-liyujiang <1032694760@qq.com>
 
-RSAUtils is licensed under the Mulan PSL v1.
+The software is licensed under the Mulan PSL v1.
 You can use this software according to the terms and conditions of the Mulan PSL v1.
 You may obtain a copy of Mulan PSL v1 at:
     http://license.coscl.org.cn/MulanPSL

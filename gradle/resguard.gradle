@@ -113,7 +113,7 @@ andResGuard {
             "resources.arsc"
     ]
     sevenzip {
-        artifact = "com.tencent.mm:SevenZip:${appResGuardVersion}"
+        artifact = "com.tencent.mm:SevenZip:${andResGuardVersion}"
     }
     /**
      * Optional: Specifies the name of the message digest algorithm to user when digesting the entries of JAR file

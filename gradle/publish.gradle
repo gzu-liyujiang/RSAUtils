@@ -13,9 +13,10 @@ apply plugin: 'maven-publish'
 apply plugin: 'com.jfrog.bintray'
 
 //项目相关信息
+def includeJar = false
 def pomLibGroupName = 'com.github.gzuliyujiang'
 def pomLibArtifactId = rootProject.name
-def pomLibVersion = new Date().format("yyyy.M.d")
+def pomLibVersion = rootProject.getGitLatestTag()
 def pomLibDescription = "TODO description: ${rootProject.name} for Android"
 def pomSiteUrl = "https://github.com/gzu-liyujiang/${rootProject.name}"
 def pomGitUrl = "https://github.com/gzu-liyujiang/${rootProject.name}.git"
@@ -27,22 +28,20 @@ def pomDeveloperId = 'liyujiang-gzu'
 def pomDeveloperOrg = 'gzu-liyujiang'
 def pomDeveloperName = '李玉江'
 def pomDeveloperEmail = '1032694760@qq.com'
+//GitHub仓库信息
+def githubRepositoryOwner = pomDeveloperOrg
+def githubRepositoryName = pomLibArtifactId
+def githubUsername = project.findProperty("githubUserName") ?: pomDeveloperId
+//1、在`https://github.com/settings/tokens`创建个人token，勾选包读写权限。
+//2、在`https://github.com/gzu-liyujiang/${rootProject.name}/settings/secrets`将token添加为secrets。
+//3、在GithubActions文件里添加`env:TOKEN: ${{ secrets.TOKEN }}`。
+def githubToken = project.findProperty("githubToken") ?: System.getenv("TOKEN")
+println("github credentials: user=$githubUsername token=$githubToken")
 
-def bintrayUserName = ''
-def bintrayApiKey = ''
-try {
-    // {PROJECT_ROOT}/local.properties
-    Properties localProp = new Properties()
-    localProp.load(project.rootProject.file('local.properties').newDataInputStream())
-    // {USER_HOME}/.gradle/gradle.properties
-    Map rootProp = project.getProperties()
-    //Bintray用户信息
-    bintrayUserName = localProp.getProperty('bintrayUserName', rootProp.get('bintrayUserName', ''))
-    bintrayApiKey = localProp.getProperty('bintrayApiKey', rootProp.get('bintrayApiKey', ''))
-    println("bintray properties: user=$bintrayUserName apikey=$bintrayApiKey")
-} catch (ignore) {
-    System.err.println('read bintray user&apiKey failed')
-}
+// {USER_HOME}/.gradle/gradle.properties
+def bintrayUserName = project.findProperty('bintrayUserName') ?: ''
+def bintrayApiKey = project.findProperty('bintrayApiKey') ?: ''
+println("bintray credentials: user=$bintrayUserName apikey=$bintrayApiKey")
 
 task sourcesJar(type: Jar) {
     getArchiveClassifier().set('sources')
@@ -51,6 +50,18 @@ task sourcesJar(type: Jar) {
 
 afterEvaluate {
     publishing {
+        repositories {
+            maven {
+                // See https://docs.github.com/en/packages/using-github-packages-with-your-projects-ecosystem/configuring-gradle-for-use-with-github-packages
+                // See https://docs.github.com/en/actions/configuring-and-managing-workflows/creating-and-storing-encrypted-secrets
+                name = 'GitHub Packages'
+                url = uri("https://maven.pkg.github.com/${githubRepositoryOwner}/${githubRepositoryName}")
+                credentials {
+                    username = githubUsername
+                    password = githubToken
+                }
+            }
+        }
         publications {
             // See https://developer.android.google.cn/studio/build/maven-publish-plugin
             release(MavenPublication) {
@@ -59,7 +70,9 @@ afterEvaluate {
                 version = pomLibVersion
                 description = pomLibDescription
                 artifactId pomLibArtifactId
-                artifact "${buildDir}/intermediates/aar_main_jar/release/classes.jar"
+                if (includeJar) {
+                    artifact "${buildDir}/intermediates/aar_main_jar/release/classes.jar"
+                }
                 artifact sourcesJar
                 pom.withXml {
                     def root = asNode()

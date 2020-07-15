@@ -13,8 +13,6 @@
 package com.github.gzuliyujiang.demo;
 
 import android.app.Activity;
-import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -32,17 +30,13 @@ import com.github.gzuliyujiang.rsautils.AESUtils;
 import com.github.gzuliyujiang.rsautils.Base64Utils;
 import com.github.gzuliyujiang.rsautils.RC4Utils;
 import com.github.gzuliyujiang.rsautils.RSAUtils;
-import com.yanzhenjie.permission.Action;
 import com.yanzhenjie.permission.AndPermission;
-import com.yanzhenjie.permission.Rationale;
-import com.yanzhenjie.permission.RequestExecutor;
 import com.yanzhenjie.permission.runtime.Permission;
 
 import java.nio.charset.Charset;
 import java.security.KeyPair;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
-import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
     private static final String PRIVATE_KEY = "-----BEGIN RSA PRIVATE KEY-----\n" +
@@ -84,24 +78,13 @@ public class MainActivity extends AppCompatActivity {
         AndPermission.with(activity)
                 .runtime()
                 .permission(Permission.READ_EXTERNAL_STORAGE, Permission.WRITE_EXTERNAL_STORAGE)
-                .rationale(new Rationale<List<String>>() {
-                    @Override
-                    public void showRationale(Context context, List<String> data, RequestExecutor executor) {
-                        executor.execute();
-                    }
+                .rationale((context, data, executor) -> executor.execute())
+                .onGranted(permissions -> {
+                    // Storage permission are allowed.
                 })
-                .onGranted(new Action<List<String>>() {
-                    @Override
-                    public void onAction(List<String> permissions) {
-                        // Storage permission are allowed.
-                    }
-                })
-                .onDenied(new Action<List<String>>() {
-                    @Override
-                    public void onAction(List<String> permissions) {
-                        // Storage permission are not allowed.
-                        showNormalDialog(activity);
-                    }
+                .onDenied(permissions -> {
+                    // Storage permission are not allowed.
+                    showNormalDialog(activity);
                 })
                 .start();
     }
@@ -111,20 +94,8 @@ public class MainActivity extends AppCompatActivity {
                 new AlertDialog.Builder(activity);
         builder.setTitle("去设置权限");
         builder.setMessage("存储权限被你禁止了，会影响部分功能，是否去要去重新设置？");
-        builder.setPositiveButton("是",
-                new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        getAppDetailSetting();
-                    }
-                });
-        builder.setNegativeButton("否",
-                new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        dialog.dismiss();
-                    }
-                });
+        builder.setPositiveButton("是", (dialog, which) -> getAppDetailSetting());
+        builder.setNegativeButton("否", (dialog, which) -> dialog.dismiss());
         builder.show();
     }
 
@@ -245,20 +216,24 @@ public class MainActivity extends AppCompatActivity {
         RSAUtils.printPrivateKeyInfo(privateKey);
         final String registerCode = "d0013db0-bc78-4c15-94d9-29e868edbd1b";
         Logger.print("registerCode=" + registerCode);
-        String LICENSE_KEY_BEGIN = "-----BEGIN LICENSE KEY-----";
-        String LICENSE_KEY_END = "-----END LICENSE KEY-----";
-        byte[] sign = RSAUtils.signature(registerCode.getBytes(), privateKey, "NONEwithRSA");
-        String licenseKey = LICENSE_KEY_BEGIN + "\n" + Base64Utils.encodeToString(sign) + "\n" + LICENSE_KEY_END;
-        Logger.print("licenseKey: \n" + licenseKey);
-        boolean result = licenseKey.equals("-----BEGIN LICENSE KEY-----\n" +
-                "HIgNAP/wjy4vbUQK9hhhtrlkNtjS9/RuNLbHPih3ZO4uf5sE7UfFoNXlmIDHnvxHVuRPE1GS3Uz3\n" +
-                "uhHxpkVuJEn6/b4Rg+XUCxbLyYpmzfVhu6JCebChl8taq5uFvfZPhbXiAPVIVL68BYmSYgsoF5u/\n" +
-                "AcGXpl5n3Vr4BBwumQg=\n" +
-                "-----END LICENSE KEY-----");
-        Logger.print("licenseKey equals=" + result);
-        result = RSAUtils.verify(registerCode.getBytes(), publicKey, sign, "NONEwithRSA");
-        Logger.print("verify result=" + result);
-        Toast.makeText(this, "LICENSE KEY已生成", Toast.LENGTH_SHORT).show();
+        try {
+            String LICENSE_KEY_BEGIN = "-----BEGIN LICENSE KEY-----";
+            String LICENSE_KEY_END = "-----END LICENSE KEY-----";
+            byte[] sign = RSAUtils.signature(registerCode.getBytes(), privateKey, "NONEwithRSA");
+            String licenseKey = LICENSE_KEY_BEGIN + "\n" + Base64Utils.encodeToString(sign) + "\n" + LICENSE_KEY_END;
+            Logger.print("licenseKey: \n" + licenseKey);
+            boolean result = licenseKey.equals("-----BEGIN LICENSE KEY-----\n" +
+                    "HIgNAP/wjy4vbUQK9hhhtrlkNtjS9/RuNLbHPih3ZO4uf5sE7UfFoNXlmIDHnvxHVuRPE1GS3Uz3\n" +
+                    "uhHxpkVuJEn6/b4Rg+XUCxbLyYpmzfVhu6JCebChl8taq5uFvfZPhbXiAPVIVL68BYmSYgsoF5u/\n" +
+                    "AcGXpl5n3Vr4BBwumQg=\n" +
+                    "-----END LICENSE KEY-----");
+            Logger.print("licenseKey equals=" + result);
+            result = RSAUtils.verify(registerCode.getBytes(), publicKey, sign, "NONEwithRSA");
+            Logger.print("verify result=" + result);
+            Toast.makeText(this, "LicenseKey已生成", Toast.LENGTH_SHORT).show();
+        } catch (Exception e) {
+            Toast.makeText(this, "LicenseKey生成出错：" + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
     }
 
     public void generateKeyPair(View view) {
